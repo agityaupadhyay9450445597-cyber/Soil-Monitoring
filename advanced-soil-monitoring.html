@@ -82,6 +82,10 @@
                     <i data-lucide="activity" class="h-4 w-4"></i>
                     Show Comparison
                 </button>
+                <button id="galleryBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-2 transition-all duration-300">
+                    <i data-lucide="camera" class="h-4 w-4"></i>
+                    Gallery
+                </button>
             </div>
         </div>
 
@@ -831,6 +835,12 @@
                 console.log('Comparison clicked');
                 // Toggle comparison view (placeholder for now)
                 alert('🎬 Comparison view feature - Coming soon in full version!');
+            });
+
+            // Gallery button
+            document.getElementById('galleryBtn').addEventListener('click', () => {
+                console.log('Gallery clicked');
+                window.open('/gallery.html', '_blank');
             });
 
             // Video demo button

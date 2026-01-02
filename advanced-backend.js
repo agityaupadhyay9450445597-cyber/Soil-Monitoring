@@ -1,12 +1,88 @@
 const express = require('express');
 const cors = require('cors');
 const { SerialPort, ReadlineParser } = require('serialport');
+const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const session = require('express-session');
+
+// Load environment variables securely
+require('dotenv').config();
+
+// Import gallery backend functions
+const { getPhotosFromDropbox, cleanOldCache, getSecureStatus, LOCAL_CACHE_DIR } = require('./gallery-backend');
 
 const app = express();
 
+// ==========================================
+// SECURITY MIDDLEWARE
+// ==========================================
+
+// Security headers
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+            imgSrc: ["'self'", "data:", "https:", "blob:"],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'", "https:"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+        },
+    },
+    crossOriginEmbedderPolicy: false
+}));
+
+// Rate limiting for API endpoints
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: parseInt(process.env.API_RATE_LIMIT) || 100, // limit each IP to 100 requests per windowMs
+    message: {
+        error: 'Too many requests from this IP, please try again later.',
+        retryAfter: '15 minutes'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Stricter rate limiting for gallery endpoints
+const galleryLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 20, // limit each IP to 20 gallery requests per 5 minutes
+    message: {
+        error: 'Too many gallery requests, please try again later.',
+        retryAfter: '5 minutes'
+    }
+});
+
+// Session configuration for additional security
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'fallback-secret-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        httpOnly: true, // Prevent XSS
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
+// Apply rate limiting to API routes
+app.use('/api/', apiLimiter);
+app.use('/api/gallery/', galleryLimiter);
+
+// ==========================================
+// CORS AND BASIC MIDDLEWARE
+// ==========================================
+
 // Middleware
 app.use(cors({
-    origin: "*",
+    origin: process.env.NODE_ENV === 'production' ? 
+        ['http://localhost:10001', 'https://yourdomain.com'] : // Restrict origins in production
+        "*", // Allow all origins in development
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true
@@ -152,6 +228,19 @@ app.get('/', (req, res) => {
         if (err) {
             res.writeHead(500);
             return res.end('Error loading advanced-soil-monitoring.html');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+    });
+});
+
+// Serve the gallery HTML file
+app.get('/gallery.html', (req, res) => {
+    const fs = require('fs');
+    fs.readFile('gallery.html', (err, data) => {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading gallery.html');
         }
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(data);
@@ -323,6 +412,152 @@ app.get('/api/health', (req, res) => {
         ]
     });
 });
+
+// ==========================================
+// SECURE GALLERY API ROUTES
+// ==========================================
+
+// Serve cached photos with security headers
+app.use('/cached-photos', (req, res, next) => {
+    // Security headers for images
+    res.set({
+        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY'
+    });
+    next();
+}, express.static(LOCAL_CACHE_DIR, {
+    maxAge: '1h',
+    etag: true,
+    lastModified: true
+}));
+
+// Get all photos from Dropbox - SECURE ENDPOINT
+app.get('/api/gallery/photos', async (req, res) => {
+    try {
+        console.log('🔒 Secure Gallery API: Fetching photos...');
+        
+        // Security: Add request tracking
+        const clientIP = req.ip || req.connection.remoteAddress;
+        console.log(`📸 Gallery request from IP: ${clientIP}`);
+        
+        const photos = await getPhotosFromDropbox();
+        
+        // Security: Remove any sensitive information before sending
+        const sanitizedPhotos = photos.map(photo => ({
+            id: photo.id, // Already hashed
+            name: photo.name,
+            title: photo.title,
+            url: photo.url, // Local secure path only
+            thumbnail: photo.thumbnail,
+            size: photo.size,
+            dateModified: photo.dateModified
+            // NO Dropbox paths, tokens, or sensitive info
+        }));
+        
+        res.json({
+            success: true,
+            photos: sanitizedPhotos,
+            count: sanitizedPhotos.length,
+            timestamp: new Date().toISOString()
+            // NO server info or sensitive data
+        });
+        
+        console.log(`✅ Secure Gallery API: Returned ${sanitizedPhotos.length} photos safely`);
+    } catch (error) {
+        console.error('❌ Secure Gallery API Error:', error.message);
+        
+        // Security: Don't expose detailed error information
+        res.status(500).json({
+            success: false,
+            error: 'Unable to fetch photos at this time',
+            timestamp: new Date().toISOString()
+            // NO detailed error info exposed
+        });
+    }
+});
+
+// Download specific photo - SECURE ENDPOINT
+app.get('/api/gallery/download/:photoId', async (req, res) => {
+    try {
+        const { photoId } = req.params;
+        
+        // Security: Validate photo ID format
+        if (!/^[a-f0-9]{16}$/.test(photoId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid photo identifier'
+            });
+        }
+        
+        console.log(`🔒 Secure download request for photo: ${photoId}`);
+        
+        // For now, return success message
+        // In full implementation, you would securely serve the file
+        res.json({
+            success: true,
+            message: 'Secure download functionality active',
+            photoId: photoId
+        });
+        
+    } catch (error) {
+        console.error('❌ Secure Download Error:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Download unavailable'
+        });
+    }
+});
+
+// Sync with Dropbox - SECURE ENDPOINT
+app.post('/api/gallery/sync', async (req, res) => {
+    try {
+        console.log('🔒 Secure Gallery API: Manual sync requested...');
+        
+        // Security: Add request tracking
+        const clientIP = req.ip || req.connection.remoteAddress;
+        console.log(`🔄 Sync request from IP: ${clientIP}`);
+        
+        // Clean old cache first (security measure)
+        cleanOldCache();
+        
+        // Fetch fresh photos securely
+        const photos = await getPhotosFromDropbox();
+        
+        res.json({
+            success: true,
+            message: 'Sync completed successfully',
+            photoCount: photos.length,
+            timestamp: new Date().toISOString()
+            // NO sensitive sync details
+        });
+        
+        console.log(`✅ Secure Gallery API: Sync completed, ${photos.length} photos processed safely`);
+    } catch (error) {
+        console.error('❌ Secure Gallery Sync Error:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Sync unavailable at this time'
+        });
+    }
+});
+
+// Gallery health check - SECURE ENDPOINT
+app.get('/api/gallery/health', (req, res) => {
+    const status = getSecureStatus();
+    
+    res.json({
+        success: true,
+        status: 'Secure Gallery API Online',
+        configured: status.dropboxConfigured,
+        timestamp: new Date().toISOString()
+        // NO sensitive configuration details
+    });
+});
+
+// ==========================================
+// 404 HANDLER
+// ==========================================
 
 // Catch all route for undefined endpoints
 app.use('*', (req, res) => {
