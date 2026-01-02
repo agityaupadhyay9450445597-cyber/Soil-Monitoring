@@ -10,7 +10,7 @@ const session = require('express-session');
 require('dotenv').config();
 
 // Import gallery backend functions
-const { getPhotosFromDropbox, cleanOldCache, getSecureStatus, LOCAL_CACHE_DIR } = require('./gallery-backend');
+const { getPhotosFromCloudStorage, cleanOldCache, getSecureStatus, LOCAL_CACHE_DIR } = require('./gallery-backend');
 
 const app = express();
 
@@ -432,7 +432,7 @@ app.use('/cached-photos', (req, res, next) => {
     lastModified: true
 }));
 
-// Get all photos from Dropbox - SECURE ENDPOINT
+// Get all photos from cloud storage - SECURE ENDPOINT
 app.get('/api/gallery/photos', async (req, res) => {
     try {
         console.log('🔒 Secure Gallery API: Fetching photos...');
@@ -441,7 +441,7 @@ app.get('/api/gallery/photos', async (req, res) => {
         const clientIP = req.ip || req.connection.remoteAddress;
         console.log(`📸 Gallery request from IP: ${clientIP}`);
         
-        const photos = await getPhotosFromDropbox();
+        const photos = await getPhotosFromCloudStorage();
         
         // Security: Remove any sensitive information before sending
         const sanitizedPhotos = photos.map(photo => ({
@@ -452,7 +452,7 @@ app.get('/api/gallery/photos', async (req, res) => {
             thumbnail: photo.thumbnail,
             size: photo.size,
             dateModified: photo.dateModified
-            // NO Dropbox paths, tokens, or sensitive info
+            // NO cloud storage paths, tokens, or sensitive info
         }));
         
         res.json({
@@ -509,7 +509,7 @@ app.get('/api/gallery/download/:photoId', async (req, res) => {
     }
 });
 
-// Sync with Dropbox - SECURE ENDPOINT
+// Sync with cloud storage - SECURE ENDPOINT
 app.post('/api/gallery/sync', async (req, res) => {
     try {
         console.log('🔒 Secure Gallery API: Manual sync requested...');
@@ -522,7 +522,7 @@ app.post('/api/gallery/sync', async (req, res) => {
         cleanOldCache();
         
         // Fetch fresh photos securely
-        const photos = await getPhotosFromDropbox();
+        const photos = await getPhotosFromCloudStorage();
         
         res.json({
             success: true,
@@ -549,7 +549,7 @@ app.get('/api/gallery/health', (req, res) => {
     res.json({
         success: true,
         status: 'Secure Gallery API Online',
-        configured: status.dropboxConfigured,
+        configured: status.cloudStorageConfigured,
         timestamp: new Date().toISOString()
         // NO sensitive configuration details
     });

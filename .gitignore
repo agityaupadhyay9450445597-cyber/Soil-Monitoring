@@ -99,3 +99,18 @@ Thumbs.db
 temp_repo/
 *.tmp
 *.temp
+
+# Extra Security - Sensitive Files
+*.env*
+*token*
+*credential*
+*secret*
+dropbox_token.txt
+access_token.txt
+config/secrets.json
+secrets/
+*.key
+*.pem
+
+# Cached photos (optional - remove if you want to commit cached photos)
+cached-photos/

@@ -1,4 +1,4 @@
-// Gallery Backend - Secure Dropbox Integration
+// Gallery Backend - Secure Cloud Storage Integration
 const express = require('express');
 const { Dropbox } = require('dropbox');
 const fs = require('fs');
@@ -9,13 +9,13 @@ const crypto = require('crypto');
 // Load environment variables
 require('dotenv').config();
 
-// Secure Dropbox configuration - NEVER expose token
+// Secure Cloud Storage configuration - NEVER expose token
 const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
-const GALLERY_FOLDER = ''; // Root directory of Dropbox
+const GALLERY_FOLDER = ''; // Root directory of cloud storage
 const LOCAL_CACHE_DIR = path.join(__dirname, 'cached-photos');
 
 // Security: Validate token format without exposing it
-function validateDropboxToken() {
+function validateCloudToken() {
     if (!DROPBOX_ACCESS_TOKEN) {
         return false;
     }
@@ -23,16 +23,16 @@ function validateDropboxToken() {
     return DROPBOX_ACCESS_TOKEN.length > 50 && DROPBOX_ACCESS_TOKEN.startsWith('sl.');
 }
 
-// Initialize Dropbox client securely
+// Initialize Cloud Storage client securely
 let dbx = null;
-if (validateDropboxToken()) {
+if (validateCloudToken()) {
     dbx = new Dropbox({ 
         accessToken: DROPBOX_ACCESS_TOKEN,
         fetch: require('node-fetch') // Use node-fetch for better security
     });
-    console.log('� Dro pbox client initialized securely');
+    console.log('🔒 Cloud Storage client initialized securely');
 } else {
-    console.error('❌ Invalid or missing Dropbox access token');
+    console.error('❌ Invalid or missing cloud storage access token');
 }
 
 // Ensure cache directory exists with proper permissions
@@ -49,15 +49,15 @@ function generateSecureFilename(originalName, fileId) {
 }
 
 /**
- * Get all photos from Dropbox securely - NO TOKEN EXPOSURE
+ * Get all photos from cloud storage securely - NO TOKEN EXPOSURE
  */
-async function getPhotosFromDropbox() {
+async function getPhotosFromCloudStorage() {
     if (!dbx) {
-        throw new Error('Dropbox service unavailable. Please check configuration.');
+        throw new Error('Cloud storage service unavailable. Please check configuration.');
     }
 
     try {
-        console.log('🔒 Securely fetching photos from Dropbox...');
+        console.log('🔒 Securely fetching photos from cloud storage...');
         console.log('📁 Looking in directory:', GALLERY_FOLDER || 'Root directory');
         
         // List all files in the root directory (or gallery folder)
@@ -66,7 +66,7 @@ async function getPhotosFromDropbox() {
             recursive: false // Don't go into subdirectories
         });
         
-        console.log(`📋 Found ${response.result.entries.length} total files in Dropbox`);
+        console.log(`📋 Found ${response.result.entries.length} total files in cloud storage`);
         
         // Filter for image files only
         const imageFiles = response.result.entries.filter(entry => 
@@ -102,7 +102,7 @@ async function getPhotosFromDropbox() {
                     thumbnail: `/cached-photos/${secureFilename}`, // Same as URL for now
                     size: formatFileSize(file.size),
                     dateModified: file.client_modified,
-                    // NO path or sensitive Dropbox info exposed
+                    // NO path or sensitive cloud storage info exposed
                     localPath: localPath
                 };
                 
@@ -123,7 +123,7 @@ async function getPhotosFromDropbox() {
         
     } catch (error) {
         console.error('❌ Secure fetch error:', error.message);
-        // Don't expose detailed Dropbox errors to client
+        // Don't expose detailed cloud storage errors to client
         throw new Error('Failed to fetch photos from secure storage');
     }
 }
@@ -261,16 +261,16 @@ function cleanOldCache() {
  */
 function getSecureStatus() {
     return {
-        dropboxConfigured: !!dbx,
+        cloudStorageConfigured: !!dbx,
         cacheDirectory: path.basename(LOCAL_CACHE_DIR), // Only show directory name, not full path
-        tokenValid: validateDropboxToken(),
+        tokenValid: validateCloudToken(),
         // NO sensitive information exposed
     };
 }
 
 // Export functions for use in main server
 module.exports = {
-    getPhotosFromDropbox,
+    getPhotosFromCloudStorage,
     cleanOldCache,
     getSecureStatus,
     LOCAL_CACHE_DIR,

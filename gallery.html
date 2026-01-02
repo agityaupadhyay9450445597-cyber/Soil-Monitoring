@@ -36,7 +36,7 @@
                     <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                         Plant Gallery
                     </h1>
-                    <p class="text-gray-600 text-lg mt-2">Your plant photos from Dropbox, sorted by latest first</p>
+                    <p class="text-gray-600 text-lg mt-2">Your plant photos, sorted by latest first</p>
                 </div>
             </div>
             
@@ -48,7 +48,7 @@
                 </button>
                 <button id="syncBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-all duration-300">
                     <i data-lucide="refresh-cw" class="h-4 w-4"></i>
-                    Sync with Dropbox
+                    Refresh Photos
                 </button>
             </div>
         </div>
@@ -101,7 +101,7 @@
                         <i data-lucide="camera" class="mr-3 h-8 w-8"></i>
                         <div>
                             <h2 class="text-2xl font-bold">Plant Photos</h2>
-                            <p class="text-purple-100 mt-1">Latest photos from your Dropbox</p>
+                            <p class="text-purple-100 mt-1">Latest photos from your collection</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -118,7 +118,7 @@
                 <div id="loadingState" class="flex items-center justify-center py-16">
                     <div class="text-center">
                         <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-6"></div>
-                        <p class="text-gray-600 text-lg">Loading photos from Dropbox...</p>
+                        <p class="text-gray-600 text-lg">Loading photos from storage...</p>
                         <p class="text-sm text-gray-500 mt-2">This may take a few moments</p>
                     </div>
                 </div>
@@ -132,7 +132,7 @@
                 <div id="emptyState" class="text-center py-16 hidden">
                     <i data-lucide="image-off" class="h-16 w-16 text-gray-400 mx-auto mb-4"></i>
                     <p class="text-gray-600 text-lg">No photos found</p>
-                    <p class="text-sm text-gray-500 mt-2">Upload some plant photos to your Dropbox to see them here</p>
+                    <p class="text-sm text-gray-500 mt-2">Upload some plant photos to see them here</p>
                 </div>
             </div>
         </div>
@@ -180,7 +180,7 @@
                 }
             } catch (error) {
                 console.error('Error loading photos:', error);
-                showError('Failed to load photos from Dropbox');
+                showError('Failed to load photos from storage');
             }
         }
 
@@ -274,7 +274,7 @@
                     <div class="space-y-2">
                         <p><strong>Date Taken:</strong> ${new Date(photo.dateModified).toLocaleString()}</p>
                         <p><strong>File Size:</strong> ${photo.size}</p>
-                        <p><strong>Source:</strong> Dropbox</p>
+                        <p><strong>Source:</strong> Cloud Storage</p>
                     </div>
                 </div>
                 <div>
@@ -328,23 +328,23 @@
             }
         }
 
-        // Sync with Dropbox
-        async function syncWithDropbox() {
+        // Sync with cloud storage
+        async function syncWithCloudStorage() {
             try {
-                showNotification('🔄 Syncing with Dropbox...');
+                showNotification('🔄 Refreshing photos...');
                 
                 const response = await fetch('/api/gallery/sync', { method: 'POST' });
                 const data = await response.json();
                 
                 if (data.success) {
                     await loadPhotos();
-                    showNotification('✅ Sync completed successfully!');
+                    showNotification('✅ Photos refreshed successfully!');
                 } else {
-                    throw new Error(data.error || 'Sync failed');
+                    throw new Error(data.error || 'Refresh failed');
                 }
             } catch (error) {
-                console.error('Error syncing:', error);
-                showNotification('❌ Failed to sync with Dropbox');
+                console.error('Error refreshing:', error);
+                showNotification('❌ Failed to refresh photos');
             }
         }
 
@@ -395,7 +395,7 @@
             loadPhotos();
 
             // Sync button
-            document.getElementById('syncBtn').addEventListener('click', syncWithDropbox);
+            document.getElementById('syncBtn').addEventListener('click', syncWithCloudStorage);
 
             // Close modal button
             document.getElementById('closeModal').addEventListener('click', closeModal);
