@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Soil Monitoring System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-seedling"></i>
+                <span>SoilSense</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#dashboard">Dashboard</a></li>
+                <li><a href="#monitoring">Live Monitoring</a></li>
+                <li><a href="#analytics">Analytics</a></li>
+                <li><a href="#alerts">Alerts</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1>Smart Soil Monitoring System</h1>
+                <p>Real-time soil health monitoring for precision agriculture</p>
+                <div class="hero-stats">
+                    <div class="stat-card">
+                        <i class="fas fa-thermometer-half"></i>
+                        <span class="stat-value" id="current-temp">24°C</span>
+                        <span class="stat-label">Temperature</span>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-tint"></i>
+                        <span class="stat-value" id="current-moisture">65%</span>
+                        <span class="stat-label">Moisture</span>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-flask"></i>
+                        <span class="stat-value" id="current-ph">6.8</span>
+                        <span class="stat-label">pH Level</span>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-leaf"></i>
+                        <span class="stat-value" id="current-nutrients">Good</span>
+                        <span class="stat-label">Nutrients</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="dashboard">
+            <div class="container">
+                <h2>Real-Time Dashboard</h2>
+                <div class="dashboard-grid">
+                    <!-- Soil Moisture Chart -->
+                    <div class="chart-container">
+                        <h3>Soil Moisture Levels</h3>
+                        <canvas id="moistureChart"></canvas>
+                    </div>
+                    
+                    <!-- Temperature Chart -->
+                    <div class="chart-container">
+                        <h3>Temperature Trends</h3>
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                    
+                    <!-- pH Levels -->
+                    <div class="chart-container">
+                        <h3>pH Level Monitoring</h3>
+                        <canvas id="phChart"></canvas>
+                    </div>
+                    
+                    <!-- Nutrient Status -->
+                    <div class="chart-container">
+                        <h3>Nutrient Analysis</h3>
+                        <div class="nutrient-grid">
+                            <div class="nutrient-item">
+                                <span class="nutrient-name">Nitrogen (N)</span>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: 75%"></div>
+                                </div>
+                                <span class="nutrient-value">75%</span>
+                            </div>
+                            <div class="nutrient-item">
+                                <span class="nutrient-name">Phosphorus (P)</span>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: 60%"></div>
+                                </div>
+                                <span class="nutrient-value">60%</span>
+                            </div>
+                            <div class="nutrient-item">
+                                <span class="nutrient-name">Potassium (K)</span>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: 80%"></div>
+                                </div>
+                                <span class="nutrient-value">80%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Monitoring Section -->
+        <section id="monitoring" class="monitoring">
+            <div class="container">
+                <h2>Live Sensor Data</h2>
+                <div class="sensor-grid">
+                    <div class="sensor-card">
+                        <div class="sensor-header">
+                            <i class="fas fa-thermometer-half"></i>
+                            <h3>Temperature Sensor</h3>
+                        </div>
+                        <div class="sensor-reading">
+                            <span class="reading-value" id="temp-reading">24.5°C</span>
+                            <span class="reading-status optimal">Optimal</span>
+                        </div>
+                        <div class="sensor-details">
+                            <p>Range: 20-30°C</p>
+                            <p>Last Updated: <span id="temp-timestamp">Just now</span></p>
+                        </div>
+                    </div>
+
+                    <div class="sensor-card">
+                        <div class="sensor-header">
+                            <i class="fas fa-tint"></i>
+                            <h3>Moisture Sensor</h3>
+                        </div>
+                        <div class="sensor-reading">
+                            <span class="reading-value" id="moisture-reading">65%</span>
+                            <span class="reading-status good">Good</span>
+                        </div>
+                        <div class="sensor-details">
+                            <p>Range: 40-80%</p>
+                            <p>Last Updated: <span id="moisture-timestamp">Just now</span></p>
+                        </div>
+                    </div>
+
+                    <div class="sensor-card">
+                        <div class="sensor-header">
+                            <i class="fas fa-flask"></i>
+                            <h3>pH Sensor</h3>
+                        </div>
+                        <div class="sensor-reading">
+                            <span class="reading-value" id="ph-reading">6.8</span>
+                            <span class="reading-status optimal">Optimal</span>
+                        </div>
+                        <div class="sensor-details">
+                            <p>Range: 6.0-7.5</p>
+                            <p>Last Updated: <span id="ph-timestamp">Just now</span></p>
+                        </div>
+                    </div>
+
+                    <div class="sensor-card">
+                        <div class="sensor-header">
+                            <i class="fas fa-sun"></i>
+                            <h3>Light Sensor</h3>
+                        </div>
+                        <div class="sensor-reading">
+                            <span class="reading-value" id="light-reading">850 lux</span>
+                            <span class="reading-status good">Good</span>
+                        </div>
+                        <div class="sensor-details">
+                            <p>Range: 500-1000 lux</p>
+                            <p>Last Updated: <span id="light-timestamp">Just now</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Section -->
+        <section id="analytics" class="analytics">
+            <div class="container">
+                <h2>Soil Health Analytics</h2>
+                <div class="analytics-grid">
+                    <div class="analysis-card">
+                        <h3>Soil Health Score</h3>
+                        <div class="health-score">
+                            <div class="score-circle">
+                                <span class="score-value">85</span>
+                                <span class="score-label">Excellent</span>
+                            </div>
+                        </div>
+                        <div class="score-breakdown">
+                            <div class="score-item">
+                                <span>Moisture</span>
+                                <span>90%</span>
+                            </div>
+                            <div class="score-item">
+                                <span>pH Balance</span>
+                                <span>85%</span>
+                            </div>
+                            <div class="score-item">
+                                <span>Nutrients</span>
+                                <span>80%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-card">
+                        <h3>Recommendations</h3>
+                        <div class="recommendations">
+                            <div class="recommendation-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Soil moisture levels are optimal for current crops</span>
+                            </div>
+                            <div class="recommendation-item">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>Consider adding phosphorus fertilizer next week</span>
+                            </div>
+                            <div class="recommendation-item">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Monitor temperature closely during hot weather</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-card">
+                        <h3>Weekly Summary</h3>
+                        <div class="summary-stats">
+                            <div class="summary-item">
+                                <span class="summary-label">Avg Temperature</span>
+                                <span class="summary-value">23.8°C</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Avg Moisture</span>
+                                <span class="summary-value">62%</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">pH Stability</span>
+                                <span class="summary-value">Stable</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Irrigation Events</span>
+                                <span class="summary-value">3 times</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Alerts Section -->
+        <section id="alerts" class="alerts">
+            <div class="container">
+                <h2>System Alerts & Notifications</h2>
+                <div class="alerts-container">
+                    <div class="alert-item success">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="alert-content">
+                            <h4>System Status: Normal</h4>
+                            <p>All sensors are functioning properly</p>
+                            <span class="alert-time">2 minutes ago</span>
+                        </div>
+                    </div>
+                    
+                    <div class="alert-item warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div class="alert-content">
+                            <h4>Low Phosphorus Detected</h4>
+                            <p>Phosphorus levels below optimal range in Zone B</p>
+                            <span class="alert-time">1 hour ago</span>
+                        </div>
+                    </div>
+                    
+                    <div class="alert-item info">
+                        <i class="fas fa-info-circle"></i>
+                        <div class="alert-content">
+                            <h4>Irrigation Scheduled</h4>
+                            <p>Automatic irrigation will start at 6:00 AM tomorrow</p>
+                            <span class="alert-time">3 hours ago</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 SoilSense - Smart Agriculture Monitoring System</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

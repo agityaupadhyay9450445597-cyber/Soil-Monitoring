@@ -1,0 +1,34 @@
+{
+  "name": "advanced-soil-monitoring-system",
+  "version": "2.0.0",
+  "description": "Advanced IoT-based Soil Monitoring System - IIT Bombay Smart Agriculture",
+  "main": "advanced-backend.js",
+  "scripts": {
+    "start": "node advanced-backend.js",
+    "dev": "nodemon advanced-backend.js",
+    "simple": "node soil-monitoring-app.js"
+  },
+  "keywords": [
+    "soil",
+    "monitoring",
+    "agriculture",
+    "iot",
+    "sensors",
+    "ai",
+    "iit-bombay"
+  ],
+  "author": "IIT Bombay Smart Agriculture Team",
+  "license": "MIT",
+  "dependencies": {
+    "@serialport/bindings-cpp": "^13.0.1",
+    "@serialport/parser-readline": "^13.0.0",
+    "@serialport/stream": "^13.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "serialport": "^13.0.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}

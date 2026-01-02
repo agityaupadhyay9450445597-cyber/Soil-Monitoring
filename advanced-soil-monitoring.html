@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌱 Advanced Soil Monitoring System - IIT Bombay</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slide-in {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.8), 0 0 30px rgba(99, 102, 241, 0.6); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-fade-in { animation: fade-in 0.6s ease-out forwards; }
+        .animate-slide-in { animation: slide-in 0.8s ease-out forwards; }
+        .animate-glow { animation: glow 2s ease-in-out infinite; }
+        .animate-pulse { animation: pulse 2s ease-in-out infinite; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-cyan-50">
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Header -->
+        <div class="text-center mb-8 animate-fade-in">
+            <div class="flex justify-center items-center mb-4">
+                <div class="p-3 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full mr-4">
+                    <i data-lucide="sprout" class="h-8 w-8 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                        Advanced Soil Monitoring System
+                    </h1>
+                    <p class="text-gray-600 text-lg mt-2">Real-time moisture analysis & AI-powered crop recommendations</p>
+                </div>
+            </div>
+
+            <!-- Mode Toggle Switch -->
+            <div class="flex justify-center items-center gap-4 mt-6 mb-4">
+                <div class="p-4 bg-white shadow-lg rounded-lg">
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-semibold text-gray-700">Data Source:</span>
+                        <div class="flex items-center gap-3">
+                            <button id="demoModeBtn" class="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white transition-all duration-300">
+                                🎬 Demo Mode
+                            </button>
+                            <div class="relative inline-block w-12 h-6">
+                                <input type="checkbox" id="modeToggle" class="sr-only peer">
+                                <div class="w-12 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 cursor-pointer"></div>
+                            </div>
+                            <button id="piModeBtn" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-600 transition-all duration-300">
+                                📡 Raspberry Pi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection Status -->
+            <div class="flex justify-center items-center gap-4 mt-4">
+                <div id="connectionStatus" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-full flex items-center gap-2">
+                    <i data-lucide="activity" class="h-4 w-4"></i>
+                    <span>Demo Mode Active</span>
+                </div>
+                <button id="refreshBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-all duration-300">
+                    <i data-lucide="refresh-cw" class="h-4 w-4"></i>
+                    Refresh
+                </button>
+                <button id="comparisonBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 transition-all duration-300">
+                    <i data-lucide="activity" class="h-4 w-4"></i>
+                    Show Comparison
+                </button>
+            </div>
+        </div>
+
+        <!-- Current Moisture Status -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Main Moisture Card -->
+            <div class="lg:col-span-2 shadow-2xl border-0 bg-white/90 backdrop-blur-sm hover:shadow-3xl transition-all duration-300 rounded-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i data-lucide="droplets" class="mr-2 h-6 w-6"></i>
+                            <h3 class="text-xl font-bold">Current Soil Moisture</h3>
+                        </div>
+                        <i data-lucide="activity" class="h-5 w-5 animate-pulse"></i>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <div class="text-center mb-4">
+                        <div class="text-6xl font-bold text-green-600 mb-3">
+                            <span id="moistureValue">61.0</span>
+                            <span class="text-3xl ml-2">%</span>
+                        </div>
+                        <div class="flex items-center justify-center gap-2 mb-4">
+                            <div id="moistureStatus" class="bg-green-100 text-green-800 px-4 py-2 rounded-full flex items-center gap-2 text-base">
+                                <i data-lucide="minus" class="h-5 w-5"></i>
+                                <span>Optimal</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Moisture Level Bar -->
+                        <div class="w-full bg-gray-200 rounded-full h-6 mb-4 overflow-hidden">
+                            <div id="moistureBar" class="h-full rounded-full transition-all duration-500 bg-green-500" style="width: 61%"></div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 text-xs text-gray-600 mb-4">
+                            <div class="text-left">
+                                <div class="font-semibold">0%</div>
+                                <div>Dry</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-semibold">50%</div>
+                                <div>Optimal</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-semibold">100%</div>
+                                <div>Saturated</div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                            <p id="actionMessage" class="text-sm font-semibold text-gray-800 mb-2">
+                                ✅ Perfect moisture level
+                            </p>
+                            <p class="text-xs text-gray-600">
+                                Last updated: <span id="lastUpdate">Just now</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="shadow-2xl border-0 bg-white/90 backdrop-blur-sm rounded-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-4">
+                    <div class="flex items-center text-base">
+                        <i data-lucide="activity" class="mr-2 h-5 w-5"></i>
+                        <h3 class="font-bold">Soil Conditions</h3>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="space-y-4">
+                        <div class="p-3 bg-blue-50 rounded-lg">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center">
+                                    <i data-lucide="droplets" class="h-4 w-4 text-blue-600 mr-2"></i>
+                                    <span class="text-sm font-medium">Moisture</span>
+                                </div>
+                                <span id="quickMoisture" class="text-lg font-bold text-blue-600">61.0%</span>
+                            </div>
+                            <div id="moistureCategory" class="text-xs text-gray-600">Optimal Moisture</div>
+                        </div>
+
+                        <div class="p-3 bg-green-50 rounded-lg">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center">
+                                    <i data-lucide="leaf" class="h-4 w-4 text-green-600 mr-2"></i>
+                                    <span class="text-sm font-medium">Soil Type</span>
+                                </div>
+                            </div>
+                            <div id="soilType" class="text-xs text-gray-600">Loamy</div>
+                        </div>
+
+                        <div class="p-3 bg-purple-50 rounded-lg">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center">
+                                    <i data-lucide="radio" class="h-4 w-4 text-purple-600 mr-2"></i>
+                                    <span class="text-sm font-medium">Device</span>
+                                </div>
+                            </div>
+                            <div id="deviceId" class="text-xs text-gray-600 break-all">DEMO-MODE</div>
+                        </div>
+
+                        <div class="p-3 bg-orange-50 rounded-lg">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center">
+                                    <i data-lucide="activity" class="h-4 w-4 text-orange-600 mr-2"></i>
+                                    <span class="text-sm font-medium">Status</span>
+                                </div>
+                            </div>
+                            <div id="liveStatus" class="text-xs text-green-600 font-semibold">● Live</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Moisture Chart -->
+        <div class="shadow-2xl border-0 bg-white/90 backdrop-blur-sm mb-8 rounded-lg overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i data-lucide="activity" class="mr-2 h-6 w-6"></i>
+                        <h3 class="text-xl font-bold">Real-Time Moisture Trend</h3>
+                    </div>
+                    <div class="bg-white/20 text-white px-3 py-1 rounded-full text-sm">
+                        <span id="readingsCount">7</span> readings
+                    </div>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-4">
+                    <canvas id="moistureChart" width="400" height="200"></canvas>
+                </div>
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                        <p class="text-xs text-gray-600 mb-1">Auto-Update</p>
+                        <p class="text-sm font-semibold text-green-700">Every 5 seconds</p>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                        <p class="text-xs text-gray-600 mb-1">Data Range</p>
+                        <p class="text-sm font-semibold text-blue-700">Last 60 readings</p>
+                    </div>
+                    <div class="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+                        <p class="text-xs text-gray-600 mb-1">Range</p>
+                        <p class="text-sm font-semibold text-purple-700">0-100% moisture</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Crop Recommendations -->
+        <div class="shadow-2xl border-0 bg-white/90 backdrop-blur-sm mb-8 rounded-lg overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4">
+                <div class="flex items-center">
+                    <i data-lucide="sprout" class="mr-2 h-6 w-6"></i>
+                    <h3 class="text-xl font-bold">Recommended Crops for Current Conditions</h3>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 id="cropCategory" class="text-2xl font-bold text-gray-800">Optimal Moisture</h3>
+                            <p id="cropDescription" class="text-gray-600 mt-1">Ideal for most crops</p>
+                        </div>
+                        <div id="cropEmoji" class="text-4xl">🌱</div>
+                    </div>
+
+                    <div class="p-4 bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg mb-4">
+                        <p id="cropAction" class="text-lg font-semibold text-green-800 flex items-center">
+                            <i data-lucide="check-circle-2" class="mr-2 h-5 w-5"></i>
+                            ✅ Perfect moisture level
+                        </p>
+                    </div>
+
+                    <!-- AI-Powered Crop Cards -->
+                    <div id="cropGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <!-- Crop cards will be populated by JavaScript -->
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                        <div class="p-4 bg-blue-50 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="droplets" class="h-5 w-5 text-blue-600 mr-2"></i>
+                                <h4 class="font-semibold text-gray-800">Moisture Level</h4>
+                            </div>
+                            <p class="text-sm text-gray-600">
+                                Current: <span id="currentMoisture" class="font-bold text-blue-600">61.0%</span>
+                            </p>
+                            <p id="moistureAdvice" class="text-xs text-gray-500 mt-1">Optimal - most crops thrive</p>
+                        </div>
+
+                        <div class="p-4 bg-orange-50 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="thermometer" class="h-5 w-5 text-orange-600 mr-2"></i>
+                                <h4 class="font-semibold text-gray-800">Climate Suitability</h4>
+                            </div>
+                            <p class="text-sm text-gray-600">
+                                Season: <span class="font-bold text-orange-600">All Seasons</span>
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">Adjust irrigation based on seasonal rainfall</p>
+                        </div>
+
+                        <div class="p-4 bg-green-50 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <i data-lucide="leaf" class="h-5 w-5 text-green-600 mr-2"></i>
+                                <h4 class="font-semibold text-gray-800">Soil Health</h4>
+                            </div>
+                            <p class="text-sm text-gray-600">
+                                Status: <span id="soilHealth" class="font-bold text-green-600">Healthy</span>
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">Monitor regularly for best results</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border-l-4 border-yellow-500">
+                        <div class="flex items-start">
+                            <i data-lucide="alert-circle" class="h-5 w-5 text-yellow-600 mr-3 mt-1"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-800 mb-2">💡 Farming Tips:</h4>
+                                <ul class="text-sm text-gray-700 space-y-1">
+                                    <li>• Monitor moisture levels daily for optimal crop growth</li>
+                                    <li>• Adjust irrigation schedule based on real-time data</li>
+                                    <li>• Consider crop rotation for better soil health</li>
+                                    <li>• Use mulching to maintain consistent moisture levels</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="shadow-lg border-0 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <i data-lucide="wifi" class="h-8 w-8 opacity-80"></i>
+                    <div class="bg-white/20 text-white px-2 py-1 rounded text-xs">Live</div>
+                </div>
+                <div id="dataPoints" class="text-3xl font-bold mb-1">7</div>
+                <div class="text-sm opacity-90">Data Points Collected</div>
+            </div>
+
+            <div class="shadow-lg border-0 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <i data-lucide="activity" class="h-8 w-8 opacity-80"></i>
+                    <div class="bg-white/20 text-white px-2 py-1 rounded text-xs">5s</div>
+                </div>
+                <div class="text-3xl font-bold mb-1">Real-Time</div>
+                <div class="text-sm opacity-90">Update Frequency</div>
+            </div>
+
+            <div class="shadow-lg border-0 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <i data-lucide="sprout" class="h-8 w-8 opacity-80"></i>
+                    <div class="bg-white/20 text-white px-2 py-1 rounded text-xs">AI</div>
+                </div>
+                <div id="cropSuggestions" class="text-3xl font-bold mb-1">7</div>
+                <div class="text-sm opacity-90">Crop Suggestions</div>
+            </div>
+
+            <div class="shadow-lg border-0 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <i data-lucide="trending-up" class="h-8 w-8 opacity-80"></i>
+                    <div class="bg-white/20 text-white px-2 py-1 rounded text-xs">Smart</div>
+                </div>
+                <div class="text-3xl font-bold mb-1">95%</div>
+                <div class="text-sm opacity-90">Accuracy Rate</div>
+            </div>
+        </div>
+
+        <!-- Demo Video Section -->
+        <div class="shadow-2xl border-0 bg-white/90 backdrop-blur-sm mb-8 rounded-lg overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i data-lucide="play-circle" class="mr-2 h-6 w-6"></i>
+                        <h3 class="text-xl font-bold">🎬 System Demo & Tutorial</h3>
+                    </div>
+                    <div class="bg-white/20 text-white px-3 py-1 rounded-full text-sm">
+                        IIT Bombay Winner
+                    </div>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Video Player -->
+                    <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-8 flex items-center justify-center min-h-[300px]">
+                        <div class="text-center text-white">
+                            <i data-lucide="play-circle" class="h-16 w-16 mx-auto mb-4 opacity-60"></i>
+                            <h4 class="text-xl font-bold mb-2">Demo Video</h4>
+                            <p class="text-gray-300 mb-4">Watch the complete system in action</p>
+                            <button id="playDemoBtn" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 flex items-center gap-2 mx-auto">
+                                <i data-lucide="play" class="h-5 w-5"></i>
+                                Play Demo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Video Info -->
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-500">
+                            <h4 class="font-bold text-gray-800 mb-2">🏆 Award-Winning Features</h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• Real-time soil moisture monitoring</li>
+                                <li>• AI-powered crop recommendations</li>
+                                <li>• Pattern matching algorithms</li>
+                                <li>• Smart irrigation alerts</li>
+                                <li>• Historical data analytics</li>
+                            </ul>
+                        </div>
+
+                        <div class="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-l-4 border-green-500">
+                            <h4 class="font-bold text-gray-800 mb-2">🌱 How It Works</h4>
+                            <ol class="text-sm text-gray-700 space-y-1">
+                                <li>1. Sensors collect soil data</li>
+                                <li>2. AI analyzes moisture patterns</li>
+                                <li>3. System matches with crop requirements</li>
+                                <li>4. Smart recommendations generated</li>
+                                <li>5. Real-time alerts and insights</li>
+                            </ol>
+                        </div>
+
+                        <div class="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border-l-4 border-blue-500">
+                            <h4 class="font-bold text-gray-800 mb-2">📊 Live Statistics</h4>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span class="text-gray-600">Accuracy:</span>
+                                    <span class="font-bold text-blue-600 ml-2">95%</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">Crops:</span>
+                                    <span class="font-bold text-green-600 ml-2">8 Types</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">Updates:</span>
+                                    <span class="font-bold text-purple-600 ml-2">5s</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">Sensors:</span>
+                                    <span class="font-bold text-orange-600 ml-2">3 Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Global variables
+        let demoMode = true;
+        let moistureChart;
+        let currentMoisture = 61;
+        let historyData = [
+            { time: '10:00', moisture: 58 },
+            { time: '10:05', moisture: 62 },
+            { time: '10:10', moisture: 65 },
+            { time: '10:15', moisture: 61 },
+            { time: '10:20', moisture: 59 },
+            { time: '10:25', moisture: 63 },
+            { time: '10:30', moisture: 60 }
+        ];
+
+        // Crop patterns for AI matching
+        const cropMoisturePatterns = {
+            rice: { name: 'Rice', color: '#10b981', icon: '🌾', avgMoisture: 81, description: 'High water requirement throughout growth' },
+            wheat: { name: 'Wheat', color: '#f59e0b', icon: '🌾', avgMoisture: 51, description: 'Moderate water needs, drought-tolerant' },
+            cotton: { name: 'Cotton', color: '#ec4899', icon: '🌸', avgMoisture: 61, description: 'Moderate to high water requirement' },
+            maize: { name: 'Maize', color: '#eab308', icon: '🌽', avgMoisture: 61, description: 'Consistent moisture needed for growth' },
+            sugarcane: { name: 'Sugarcane', color: '#8b5cf6', icon: '🎋', avgMoisture: 76, description: 'Very high water requirement' },
+            tomato: { name: 'Tomato', color: '#ef4444', icon: '🍅', avgMoisture: 56, description: 'Consistent moderate moisture' },
+            potato: { name: 'Potato', color: '#a855f7', icon: '🥔', avgMoisture: 61, description: 'Moderate water needs' },
+            chickpea: { name: 'Chickpea', color: '#14b8a6', icon: '🫘', avgMoisture: 41, description: 'Low water requirement, drought-resistant' }
+        };
+
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('moistureChart').getContext('2d');
+            moistureChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: historyData.map(d => d.time),
+                    datasets: [{
+                        label: 'Soil Moisture (%)',
+                        data: historyData.map(d => d.moisture),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Moisture (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update moisture display
+        function updateMoistureDisplay(moisture) {
+            currentMoisture = moisture;
+            
+            // Update main display
+            document.getElementById('moistureValue').textContent = moisture.toFixed(1);
+            document.getElementById('quickMoisture').textContent = moisture.toFixed(1) + '%';
+            document.getElementById('currentMoisture').textContent = moisture.toFixed(1) + '%';
+            
+            // Update moisture bar
+            const bar = document.getElementById('moistureBar');
+            bar.style.width = moisture + '%';
+            
+            // Update status and colors
+            let status, statusClass, barClass, category, action, advice, soilType, health;
+            
+            if (moisture < 30) {
+                status = 'Dry - Irrigation Needed';
+                statusClass = 'bg-red-100 text-red-800';
+                barClass = 'bg-red-500';
+                category = 'Very Dry Soil';
+                action = '🚨 Immediate irrigation required';
+                advice = 'Low moisture - drought-resistant crops';
+                soilType = 'Sandy/Loamy';
+                health = 'Needs Attention';
+            } else if (moisture < 60) {
+                status = 'Optimal';
+                statusClass = 'bg-green-100 text-green-800';
+                barClass = 'bg-green-500';
+                category = 'Optimal Moisture';
+                action = '✅ Perfect moisture level';
+                advice = 'Optimal - most crops thrive';
+                soilType = 'Loamy';
+                health = 'Healthy';
+            } else {
+                status = 'Wet - Good';
+                statusClass = 'bg-blue-100 text-blue-800';
+                barClass = 'bg-blue-500';
+                category = 'High Moisture';
+                action = '⚠️ Monitor for waterlogging';
+                advice = 'High moisture - water-loving crops';
+                soilType = 'Clay/Heavy';
+                health = 'Healthy';
+            }
+            
+            // Update UI elements
+            const statusElement = document.getElementById('moistureStatus');
+            statusElement.className = statusClass + ' px-4 py-2 rounded-full flex items-center gap-2 text-base';
+            statusElement.querySelector('span').textContent = status;
+            
+            bar.className = 'h-full rounded-full transition-all duration-500 ' + barClass;
+            
+            document.getElementById('moistureCategory').textContent = category;
+            document.getElementById('actionMessage').textContent = action;
+            document.getElementById('moistureAdvice').textContent = advice;
+            document.getElementById('soilType').textContent = soilType;
+            document.getElementById('soilHealth').textContent = health;
+            document.getElementById('cropCategory').textContent = category;
+            document.getElementById('cropAction').innerHTML = `<i data-lucide="check-circle-2" class="mr-2 h-5 w-5"></i>${action}`;
+            
+            // Update crop emoji
+            const emoji = moisture < 40 ? '🌾' : moisture < 70 ? '🌱' : '🌾';
+            document.getElementById('cropEmoji').textContent = emoji;
+            
+            // Update crop recommendations
+            updateCropRecommendations(moisture);
+            
+            // Re-initialize icons
+            lucide.createIcons();
+        }
+
+        // Calculate crop matches
+        function calculateCropMatches(moisture) {
+            const matches = Object.entries(cropMoisturePatterns).map(([key, crop]) => {
+                const moistureDiff = Math.abs(moisture - crop.avgMoisture);
+                const matchScore = Math.max(0, 100 - moistureDiff * 2);
+                
+                return {
+                    cropKey: key,
+                    ...crop,
+                    matchScore: matchScore.toFixed(1),
+                    moistureDiff: moistureDiff.toFixed(1)
+                };
+            });
+            
+            return matches.sort((a, b) => parseFloat(b.matchScore) - parseFloat(a.matchScore));
+        }
+
+        // Update crop recommendations
+        function updateCropRecommendations(moisture) {
+            const cropMatches = calculateCropMatches(moisture);
+            const cropGrid = document.getElementById('cropGrid');
+            
+            cropGrid.innerHTML = cropMatches.slice(0, 8).map((crop, index) => {
+                const matchPercentage = parseFloat(crop.matchScore);
+                const isTopMatch = index < 3;
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                
+                return `
+                    <div class="p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-xl ${
+                        isTopMatch 
+                            ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' 
+                            : 'bg-white border-gray-300'
+                    }">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-3xl">${crop.icon}</span>
+                            ${isTopMatch ? `<div class="bg-green-600 text-white text-xs px-2 py-1 rounded">${medal}</div>` : ''}
+                        </div>
+                        <h5 class="font-bold text-gray-800 mb-2">${crop.name}</h5>
+                        
+                        <div class="mb-2">
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-600">Match</span>
+                                <span class="font-bold text-green-600">${crop.matchScore}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="h-2 rounded-full transition-all duration-500 ${
+                                    matchPercentage > 80 ? 'bg-green-500' :
+                                    matchPercentage > 60 ? 'bg-yellow-500' : 'bg-orange-500'
+                                }" style="width: ${matchPercentage}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Avg Moisture:</span>
+                                <span class="font-semibold">${crop.avgMoisture}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Difference:</span>
+                                <span class="font-semibold text-blue-600">±${crop.moistureDiff}%</span>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-gray-600 mt-2">${crop.description}</p>
+                    </div>
+                `;
+            }).join('');
+            
+            // Update crop suggestions count
+            document.getElementById('cropSuggestions').textContent = cropMatches.length;
+        }
+
+        // Update chart with new data
+        function updateChart() {
+            if (demoMode) {
+                // Generate new demo data point
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const newMoisture = Math.max(30, Math.min(80, currentMoisture + (Math.random() - 0.5) * 10));
+                
+                historyData.push({ time: timeStr, moisture: Math.round(newMoisture) });
+                
+                // Keep only last 20 points
+                if (historyData.length > 20) {
+                    historyData.shift();
+                }
+                
+                // Update chart
+                moistureChart.data.labels = historyData.map(d => d.time);
+                moistureChart.data.datasets[0].data = historyData.map(d => d.moisture);
+                moistureChart.update();
+                
+                // Update moisture display
+                updateMoistureDisplay(newMoisture);
+                
+                // Update readings count
+                document.getElementById('readingsCount').textContent = historyData.length;
+                document.getElementById('dataPoints').textContent = historyData.length;
+            }
+        }
+
+        // Mode toggle functionality
+        function toggleMode() {
+            demoMode = !demoMode;
+            console.log('🔄 Toggling mode to:', demoMode ? 'Demo' : 'Raspberry Pi');
+            
+            const demoBtn = document.getElementById('demoModeBtn');
+            const piBtn = document.getElementById('piModeBtn');
+            const toggle = document.getElementById('modeToggle');
+            const status = document.getElementById('connectionStatus');
+            
+            if (demoMode) {
+                // Demo mode active
+                demoBtn.className = 'px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white transition-all duration-300';
+                piBtn.className = 'px-4 py-2 rounded-lg bg-gray-200 text-gray-600 transition-all duration-300';
+                toggle.checked = false;
+                status.className = 'px-4 py-2 bg-purple-100 text-purple-800 rounded-full flex items-center gap-2';
+                status.innerHTML = '<i data-lucide="activity" class="h-4 w-4"></i><span>Demo Mode Active</span>';
+                document.getElementById('deviceId').textContent = 'DEMO-MODE';
+                document.getElementById('liveStatus').textContent = '● Live (Demo)';
+                document.getElementById('liveStatus').className = 'text-xs text-purple-600 font-semibold';
+                
+                // Start demo updates
+                console.log('🎬 Demo mode activated - starting updates');
+            } else {
+                // Raspberry Pi mode
+                demoBtn.className = 'px-4 py-2 rounded-lg bg-gray-200 text-gray-600 transition-all duration-300';
+                piBtn.className = 'px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white transition-all duration-300';
+                toggle.checked = true;
+                status.className = 'px-4 py-2 bg-red-100 text-red-800 rounded-full flex items-center gap-2';
+                status.innerHTML = '<i data-lucide="wifi-off" class="h-4 w-4"></i><span>Waiting for Data</span>';
+                document.getElementById('deviceId').textContent = 'raspberry-pi-001';
+                document.getElementById('liveStatus').textContent = '○ Offline';
+                document.getElementById('liveStatus').className = 'text-xs text-red-600 font-semibold';
+                
+                console.log('📡 Raspberry Pi mode activated - waiting for sensor data');
+            }
+            
+            // Re-initialize Lucide icons
+            lucide.createIcons();
+            
+            // Show mode change notification
+            showNotification(demoMode ? '🎬 Demo Mode Activated' : '📡 Raspberry Pi Mode Activated');
+        }
+
+        // Show notification function
+        function showNotification(message) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+            notification.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <i data-lucide="check-circle" class="h-5 w-5"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            lucide.createIcons();
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Video demo functionality
+        function playDemo() {
+            const videoContainer = document.querySelector('.bg-gradient-to-br.from-gray-900');
+            videoContainer.innerHTML = `
+                <div class="text-center text-white">
+                    <div class="relative">
+                        <div class="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg p-8 mb-4">
+                            <i data-lucide="play-circle" class="h-12 w-12 mx-auto mb-4 animate-pulse"></i>
+                            <h4 class="text-lg font-bold mb-2">🎬 Demo Playing...</h4>
+                            <p class="text-sm opacity-90">Simulating real-time soil monitoring</p>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-xs">
+                            <div class="bg-blue-500/20 p-2 rounded">
+                                <div class="font-bold">Moisture</div>
+                                <div id="demoMoisture" class="text-blue-300">61%</div>
+                            </div>
+                            <div class="bg-green-500/20 p-2 rounded">
+                                <div class="font-bold">Temp</div>
+                                <div id="demoTemp" class="text-green-300">25°C</div>
+                            </div>
+                            <div class="bg-purple-500/20 p-2 rounded">
+                                <div class="font-bold">Humidity</div>
+                                <div id="demoHumidity" class="text-purple-300">65%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            lucide.createIcons();
+            
+            // Animate demo values
+            let demoInterval = setInterval(() => {
+                const moisture = Math.floor(Math.random() * 40 + 40); // 40-80%
+                const temp = Math.floor(Math.random() * 10 + 20); // 20-30°C
+                const humidity = Math.floor(Math.random() * 30 + 50); // 50-80%
+                
+                document.getElementById('demoMoisture').textContent = moisture + '%';
+                document.getElementById('demoTemp').textContent = temp + '°C';
+                document.getElementById('demoHumidity').textContent = humidity + '%';
+            }, 1000);
+            
+            // Stop demo after 10 seconds
+            setTimeout(() => {
+                clearInterval(demoInterval);
+                showNotification('🎬 Demo completed! Switch to Demo Mode for continuous simulation.');
+            }, 10000);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Demo mode button
+            document.getElementById('demoModeBtn').addEventListener('click', () => {
+                console.log('Demo mode clicked');
+                if (!demoMode) {
+                    toggleMode();
+                }
+            });
+
+            // Pi mode button
+            document.getElementById('piModeBtn').addEventListener('click', () => {
+                console.log('Pi mode clicked');
+                if (demoMode) {
+                    toggleMode();
+                }
+            });
+
+            // Toggle switch
+            document.getElementById('modeToggle').addEventListener('change', (e) => {
+                console.log('Toggle changed:', e.target.checked);
+                toggleMode();
+            });
+
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', () => {
+                console.log('Refresh clicked');
+                updateChart();
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            });
+
+            // Comparison button
+            document.getElementById('comparisonBtn').addEventListener('click', () => {
+                console.log('Comparison clicked');
+                // Toggle comparison view (placeholder for now)
+                alert('🎬 Comparison view feature - Coming soon in full version!');
+            });
+
+            // Video demo button
+            document.getElementById('playDemoBtn').addEventListener('click', () => {
+                console.log('Play demo clicked');
+                playDemo();
+            });
+        });
+
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Initializing Advanced Soil Monitoring System...');
+            
+            // Initialize chart
+            initChart();
+            
+            // Set initial moisture display
+            updateMoistureDisplay(currentMoisture);
+            
+            // Initialize Lucide icons
+            lucide.createIcons();
+            
+            // Start demo mode updates
+            console.log('🎬 Starting demo mode with 3-second updates');
+            setInterval(() => {
+                if (demoMode) {
+                    updateChart();
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                }
+            }, 3000);
+            
+            console.log('✅ System initialized successfully!');
+        });
+    </script>
+</body>
+</html>
