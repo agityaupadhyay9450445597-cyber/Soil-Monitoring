@@ -10,7 +10,10 @@ const session = require('express-session');
 require('dotenv').config();
 
 // Import gallery backend functions
-const { getPhotosFromCloudStorage, cleanOldCache, getSecureStatus, LOCAL_CACHE_DIR } = require('./gallery-backend');
+const { getPhotosFromCloudStorage, cleanOldCache, getSecureStatus, initializeOAuth, completeOAuth, LOCAL_CACHE_DIR } = require('./gallery-backend');
+
+// Import ThingSpeak backend functions
+const { getMoistureData, sendMoistureToThingSpeak, getThingSpeakStatus } = require('./thingspeak-backend');
 
 const app = express();
 
@@ -241,6 +244,71 @@ app.get('/gallery.html', (req, res) => {
         if (err) {
             res.writeHead(500);
             return res.end('Error loading gallery.html');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+    });
+});
+
+// Serve the moisture data HTML file
+app.get('/moisture-data.html', (req, res) => {
+    const fs = require('fs');
+    fs.readFile('moisture-data.html', (err, data) => {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading moisture-data.html');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+    });
+});
+
+// Serve the Dropbox setup HTML file
+app.get('/setup-dropbox.html', (req, res) => {
+    const fs = require('fs');
+    fs.readFile('setup-dropbox.html', (err, data) => {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading setup-dropbox.html');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+    });
+});
+
+// Serve the token refresh guide HTML file
+app.get('/token-refresh-guide.html', (req, res) => {
+    const fs = require('fs');
+    fs.readFile('token-refresh-guide.html', (err, data) => {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading token-refresh-guide.html');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+    });
+});
+
+// Serve the fix dropbox HTML file
+app.get('/fix-dropbox.html', (req, res) => {
+    const fs = require('fs');
+    fs.readFile('fix-dropbox.html', (err, data) => {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading fix-dropbox.html');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+    });
+});
+
+// Serve the get refresh token HTML file
+app.get('/get-refresh-token.html', (req, res) => {
+    const fs = require('fs');
+    fs.readFile('get-refresh-token.html', (err, data) => {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading get-refresh-token.html');
         }
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(data);
@@ -550,8 +618,273 @@ app.get('/api/gallery/health', (req, res) => {
         success: true,
         status: 'Secure Gallery API Online',
         configured: status.cloudStorageConfigured,
+        autoRefreshEnabled: status.autoRefreshEnabled,
+        tokenValid: status.tokenValid,
+        hasRefreshToken: status.hasRefreshToken,
         timestamp: new Date().toISOString()
         // NO sensitive configuration details
+    });
+});
+
+// ==========================================
+// DROPBOX OAUTH SETUP ROUTES (One-time setup)
+// ==========================================
+
+// Initialize OAuth flow - SETUP ENDPOINT
+app.get('/api/gallery/setup/init', (req, res) => {
+    try {
+        const authData = initializeOAuth();
+        
+        res.json({
+            success: true,
+            message: 'OAuth initialization successful',
+            authUrl: authData.authUrl,
+            instructions: 'Visit the authUrl to authorize the application'
+        });
+        
+    } catch (error) {
+        console.error('❌ OAuth initialization error:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to initialize OAuth flow'
+        });
+    }
+});
+
+// OAuth callback - SETUP ENDPOINT
+app.get('/auth/dropbox/callback', async (req, res) => {
+    const fs = require('fs'); // Add fs import here
+    
+    try {
+        const { code, state } = req.query;
+        
+        if (!code) {
+            return res.status(400).send('Authorization code not provided');
+        }
+        
+        console.log('🔄 Processing OAuth callback for PERMANENT access...');
+        
+        const redirectUri = 'http://localhost:10001/auth/dropbox/callback';
+        
+        // Exchange code for tokens (including refresh token)
+        const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: redirectUri,
+                client_id: process.env.DROPBOX_APP_KEY,
+                client_secret: process.env.DROPBOX_APP_SECRET
+            })
+        });
+
+        if (response.ok) {
+            const tokens = await response.json();
+            console.log('✅ Received tokens:', { 
+                hasAccessToken: !!tokens.access_token,
+                hasRefreshToken: !!tokens.refresh_token 
+            });
+            
+            // Save tokens to .env file
+            const envPath = path.join(__dirname, '.env');
+            let envContent = fs.readFileSync(envPath, 'utf8');
+            
+            // Update access token
+            envContent = envContent.replace(
+                /DROPBOX_ACCESS_TOKEN=.*/,
+                `DROPBOX_ACCESS_TOKEN=${tokens.access_token}`
+            );
+            
+            // Update refresh token (MOST IMPORTANT!)
+            if (tokens.refresh_token) {
+                // Check if DROPBOX_REFRESH_TOKEN line exists
+                if (envContent.includes('DROPBOX_REFRESH_TOKEN=')) {
+                    envContent = envContent.replace(
+                        /DROPBOX_REFRESH_TOKEN=.*/,
+                        `DROPBOX_REFRESH_TOKEN=${tokens.refresh_token}`
+                    );
+                } else {
+                    // Add refresh token line if it doesn't exist
+                    envContent = envContent.replace(
+                        'DROPBOX_REFRESH_TOKEN=',
+                        `DROPBOX_REFRESH_TOKEN=${tokens.refresh_token}`
+                    );
+                }
+                console.log('🔥 PERMANENT: Refresh token saved!');
+            } else {
+                console.log('⚠️ No refresh token received - using current access token');
+            }
+            
+            fs.writeFileSync(envPath, envContent);
+            
+            // Update environment variables in memory
+            process.env.DROPBOX_ACCESS_TOKEN = tokens.access_token;
+            if (tokens.refresh_token) {
+                process.env.DROPBOX_REFRESH_TOKEN = tokens.refresh_token;
+            }
+            
+            res.send(`
+                <html>
+                    <head><title>PERMANENT Dropbox Access - SUCCESS!</title></head>
+                    <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <div style="background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto;">
+                            <h1 style="color: #4CAF50; font-size: 2.5em; margin-bottom: 20px;">🔥 PERMANENT SUCCESS!</h1>
+                            <p style="font-size: 1.2em; color: #333; margin-bottom: 20px;">
+                                <strong>Your Dropbox is now connected PERMANENTLY!</strong>
+                            </p>
+                            <div style="background: #f0f8ff; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                                <p style="color: #2196F3; font-weight: bold;">✅ Access Token: Active</p>
+                                <p style="color: #4CAF50; font-weight: bold;">✅ Refresh Token: ${tokens.refresh_token ? 'SAVED' : 'Not Available'}</p>
+                                <p style="color: #FF9800; font-weight: bold;">✅ Auto Refresh: ENABLED</p>
+                            </div>
+                            <p style="color: #666; margin-bottom: 30px;">
+                                Your gallery will now automatically refresh tokens and never expire again!
+                            </p>
+                            <a href="/gallery.html" style="background: linear-gradient(45deg, #4CAF50, #45a049); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-size: 1.1em; display: inline-block; transition: all 0.3s;">
+                                🎯 Go to Gallery - PERMANENT ACCESS!
+                            </a>
+                            <br><br>
+                            <p style="color: #999; font-size: 0.9em;">You can close this window now. Your system is PERMANENTLY configured!</p>
+                        </div>
+                    </body>
+                </html>
+            `);
+            
+            console.log('✅ PERMANENT OAuth setup completed successfully');
+            
+        } else {
+            const errorText = await response.text();
+            console.error('❌ Token exchange failed:', errorText);
+            throw new Error(`Failed to exchange code for tokens: ${response.status} - ${errorText}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ OAuth callback error:', error.message);
+        res.status(500).send(`
+            <html>
+                <head><title>Authorization Error</title></head>
+                <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                    <h1 style="color: red;">❌ Authorization Failed</h1>
+                    <p>There was an error setting up permanent access.</p>
+                    <p>Error: ${error.message}</p>
+                    <br>
+                    <a href="/get-refresh-token.html" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                        Try Again
+                    </a>
+                </body>
+            </html>
+        `);
+    }
+});
+
+// ==========================================
+// THINGSPEAK MOISTURE DATA API ROUTES
+// ==========================================
+
+// Get moisture data - SECURE ENDPOINT
+app.get('/api/moisture/data', async (req, res) => {
+    try {
+        console.log('📊 Moisture Data API: Fetching data...');
+        
+        // Security: Add request tracking
+        const clientIP = req.ip || req.connection.remoteAddress;
+        console.log(`📊 Moisture data request from IP: ${clientIP}`);
+        
+        const data = await getMoistureData();
+        
+        res.json({
+            success: true,
+            readings: data.readings,
+            count: data.count,
+            lastUpdated: data.lastUpdated,
+            timestamp: new Date().toISOString()
+        });
+        
+        console.log(`✅ Moisture Data API: Returned ${data.count} readings safely`);
+    } catch (error) {
+        console.error('❌ Moisture Data API Error:', error.message);
+        
+        res.status(500).json({
+            success: false,
+            error: 'Unable to fetch moisture data at this time',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Sync moisture data from ThingSpeak - SECURE ENDPOINT
+app.post('/api/moisture/sync', async (req, res) => {
+    try {
+        console.log('🔄 Moisture Data API: Manual sync requested...');
+        
+        // Security: Add request tracking
+        const clientIP = req.ip || req.connection.remoteAddress;
+        console.log(`🔄 Moisture sync request from IP: ${clientIP}`);
+        
+        const data = await getMoistureData(true); // Force refresh
+        
+        res.json({
+            success: true,
+            message: 'Moisture data synced successfully',
+            count: data.count,
+            timestamp: new Date().toISOString()
+        });
+        
+        console.log(`✅ Moisture Data API: Sync completed, ${data.count} readings processed`);
+    } catch (error) {
+        console.error('❌ Moisture Data Sync Error:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Sync unavailable at this time'
+        });
+    }
+});
+
+// Send moisture data to ThingSpeak - SECURE ENDPOINT
+app.post('/api/moisture/send', async (req, res) => {
+    try {
+        const { moisture, temperature, humidity } = req.body;
+        
+        if (moisture === undefined || moisture === null) {
+            return res.status(400).json({
+                success: false,
+                error: 'Moisture value is required'
+            });
+        }
+        
+        console.log(`📤 Sending moisture data: ${moisture}%`);
+        
+        const result = await sendMoistureToThingSpeak(moisture, temperature, humidity);
+        
+        res.json({
+            success: true,
+            message: 'Data sent to ThingSpeak successfully',
+            entryId: result.entryId,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Error sending to ThingSpeak:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to send data to ThingSpeak'
+        });
+    }
+});
+
+// ThingSpeak health check - SECURE ENDPOINT
+app.get('/api/moisture/health', (req, res) => {
+    const status = getThingSpeakStatus();
+    
+    res.json({
+        success: true,
+        status: 'ThingSpeak API Online',
+        configured: status.configured,
+        cacheSize: status.cacheSize,
+        timestamp: new Date().toISOString()
     });
 });
 

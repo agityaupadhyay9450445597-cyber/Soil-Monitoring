@@ -86,6 +86,10 @@
                     <i data-lucide="camera" class="h-4 w-4"></i>
                     Gallery
                 </button>
+                <button id="moistureDataBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-all duration-300">
+                    <i data-lucide="database" class="h-4 w-4"></i>
+                    Moisture Data
+                </button>
             </div>
         </div>
 
@@ -840,7 +844,13 @@
             // Gallery button
             document.getElementById('galleryBtn').addEventListener('click', () => {
                 console.log('Gallery clicked');
-                window.open('/gallery.html', '_blank');
+                window.location.href = '/gallery.html';
+            });
+
+            // Moisture Data button
+            document.getElementById('moistureDataBtn').addEventListener('click', () => {
+                console.log('Moisture Data clicked');
+                window.location.href = '/moisture-data.html';
             });
 
             // Video demo button
