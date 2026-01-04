@@ -42,10 +42,10 @@
             
             <!-- Navigation -->
             <div class="flex justify-center items-center gap-4 mt-6">
-                <button id="syncBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-all duration-300">
-                    <i data-lucide="refresh-cw" class="h-4 w-4"></i>
-                    Refresh Photos
-                </button>
+                <div class="px-4 py-2 bg-green-100 text-green-800 rounded-lg flex items-center gap-2">
+                    <i data-lucide="check-circle" class="h-4 w-4"></i>
+                    Auto-Sync Enabled
+                </div>
             </div>
         </div>
 
@@ -93,10 +93,10 @@
         <div id="tokenNotification" class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4 mb-6 hidden">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <i data-lucide="info" class="h-5 w-5 text-blue-600 mr-3"></i>
+                    <i data-lucide="info" class="h-5 w-5 text-green-600 mr-3"></i>
                     <div>
-                        <p class="text-blue-800 font-medium">Gallery Working Perfectly!</p>
-                        <p class="text-blue-600 text-sm">Want to sync new photos from Dropbox? <a href="/token-refresh-guide.html" class="underline hover:text-blue-800">Refresh token (optional)</a></p>
+                        <p class="text-green-800 font-medium">Gallery Auto-Sync Active!</p>
+                        <p class="text-green-600 text-sm">Photos automatically refresh every 5 minutes. <span id="errorFix" style="display:none;"><a href="/one-click-fix.html" class="underline text-red-600 font-bold">🔧 One-Click Fix</a></span></p>
                     </div>
                 </div>
                 <button onclick="hideTokenNotification()" class="text-blue-400 hover:text-blue-600">
@@ -519,8 +519,11 @@
             // Load photos on page load
             loadPhotos();
 
-            // Sync button
-            document.getElementById('syncBtn').addEventListener('click', syncWithCloudStorage);
+            // Auto-refresh photos every 5 minutes
+            setInterval(() => {
+                console.log('🔄 Auto-refreshing gallery...');
+                loadPhotos();
+            }, 5 * 60 * 1000); // 5 minutes
 
             // Close modal button
             document.getElementById('closeModal').addEventListener('click', closeModal);

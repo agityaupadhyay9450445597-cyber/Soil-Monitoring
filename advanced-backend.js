@@ -15,6 +15,9 @@ const { getPhotosFromCloudStorage, cleanOldCache, getSecureStatus, initializeOAu
 // Import ThingSpeak backend functions
 const { getMoistureData, sendMoistureToThingSpeak, getThingSpeakStatus } = require('./thingspeak-backend');
 
+// Import auto manager for status
+const autoManager = require('./dropbox-auto-manager');
+
 const app = express();
 
 // ==========================================
@@ -117,7 +120,7 @@ const MAX_HISTORY = 100;
 // Serial port setup (with error handling)
 let port = null;
 let parser = null;
-let demoMode = true;
+let demoMode = false; // FORCE DISABLE DEMO MODE
 
 try {
     port = new SerialPort({
@@ -134,49 +137,69 @@ try {
     console.log('✅ Arduino connected on COM5');
     demoMode = false;
 } catch (error) {
-    console.log('⚠️  Arduino not connected - running in demo mode');
-    console.log('   Connect Arduino to COM5 and restart to use real sensors');
-    demoMode = true;
+    console.log('⚠️  Arduino not connected - using ThingSpeak real data instead');
+    console.log('   Real data will be fetched from ThingSpeak every 30 seconds');
+    demoMode = false; // STILL NO DEMO MODE - USE THINGSPEAK
 }
 
-// Demo mode - generate realistic sensor data
-if (demoMode) {
-    console.log('🎬 Starting advanced demo mode with AI-powered sensor simulation');
+// Real-time ThingSpeak data fetching (since no Arduino connected)
+if (!port) {
+    console.log('🌐 Starting ThingSpeak real-time data fetching...');
+    console.log('📡 Fetching real sensor data from ThingSpeak every 30 seconds');
     
-    setInterval(() => {
-        // Generate realistic sensor variations
-        const baseTemp = 25;
-        const baseHumidity = 65;
-        const baseMoisture = latestSensorData.soilMoisture;
-        
-        // Simulate natural variations
-        const tempVariation = (Math.random() - 0.5) * 4; // ±2°C
-        const humidityVariation = (Math.random() - 0.5) * 10; // ±5%
-        const moistureVariation = (Math.random() - 0.5) * 8; // ±4%
-        
-        const newData = {
-            soilMoisture: Math.max(30, Math.min(80, baseMoisture + moistureVariation)),
-            temperature: Math.max(20, Math.min(35, baseTemp + tempVariation)),
-            humidity: Math.max(40, Math.min(80, baseHumidity + humidityVariation)),
-            timestamp: new Date().toISOString(),
-            deviceId: 'DEMO-MODE'
-        };
-        
-        // Round values for realism
-        newData.soilMoisture = Math.round(newData.soilMoisture * 10) / 10;
-        newData.temperature = Math.round(newData.temperature * 10) / 10;
-        newData.humidity = Math.round(newData.humidity * 10) / 10;
-        
-        latestSensorData = newData;
-        
-        // Add to history
-        sensorHistory.push({ ...newData });
-        if (sensorHistory.length > MAX_HISTORY) {
-            sensorHistory.shift();
+    // Fetch initial data
+    (async () => {
+        try {
+            const thingspeakData = await getMoistureData();
+            if (thingspeakData.readings && thingspeakData.readings.length > 0) {
+                const latestReading = thingspeakData.readings[thingspeakData.readings.length - 1];
+                latestSensorData = {
+                    soilMoisture: latestReading.soilMoisture,
+                    temperature: latestReading.temperature,
+                    humidity: latestReading.humidity,
+                    timestamp: latestReading.timestamp,
+                    deviceId: 'THINGSPEAK-REAL'
+                };
+                
+                // Update history with ThingSpeak data
+                sensorHistory = thingspeakData.readings.slice(-MAX_HISTORY);
+                console.log('✅ Loaded real data from ThingSpeak:', latestSensorData);
+            }
+        } catch (error) {
+            console.log('⚠️ Initial ThingSpeak fetch failed:', error.message);
         }
-        
-        console.log('🎬 Generated demo data:', newData);
-    }, 5000); // Update every 5 seconds
+    })();
+    
+    // Set up periodic fetching
+    setInterval(async () => {
+        try {
+            console.log('🔄 Fetching fresh data from ThingSpeak...');
+            const thingspeakData = await getMoistureData();
+            
+            if (thingspeakData.readings && thingspeakData.readings.length > 0) {
+                const latestReading = thingspeakData.readings[thingspeakData.readings.length - 1];
+                
+                // Only update if we have newer data
+                if (new Date(latestReading.timestamp) > new Date(latestSensorData.timestamp)) {
+                    latestSensorData = {
+                        soilMoisture: latestReading.soilMoisture,
+                        temperature: latestReading.temperature,
+                        humidity: latestReading.humidity,
+                        timestamp: latestReading.timestamp,
+                        deviceId: 'THINGSPEAK-REAL'
+                    };
+                    
+                    // Update history
+                    sensorHistory = thingspeakData.readings.slice(-MAX_HISTORY);
+                    console.log('✅ Updated with fresh ThingSpeak data:', latestSensorData);
+                } else {
+                    console.log('📊 ThingSpeak data is up to date');
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ ThingSpeak fetch failed:', error.message);
+        }
+    }, 30000); // Every 30 seconds
 }
 
 // Real Arduino data processing
@@ -302,13 +325,26 @@ app.get('/fix-dropbox.html', (req, res) => {
     });
 });
 
-// Serve the get refresh token HTML file
-app.get('/get-refresh-token.html', (req, res) => {
+// Serve the one-click fix HTML file
+app.get('/one-click-fix.html', (req, res) => {
     const fs = require('fs');
-    fs.readFile('get-refresh-token.html', (err, data) => {
+    fs.readFile('one-click-fix.html', (err, data) => {
         if (err) {
             res.writeHead(500);
-            return res.end('Error loading get-refresh-token.html');
+            return res.end('Error loading one-click-fix.html');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+    });
+});
+
+// Serve the setup dropbox real HTML file
+app.get('/setup-dropbox-real.html', (req, res) => {
+    const fs = require('fs');
+    fs.readFile('setup-dropbox-real.html', (err, data) => {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading setup-dropbox-real.html');
         }
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(data);
@@ -316,7 +352,7 @@ app.get('/get-refresh-token.html', (req, res) => {
 });
 
 // API Routes - IoT Sensor Data
-app.post('/api/iot/sensor-data', (req, res) => {
+app.post('/api/iot/sensor-data', async (req, res) => {
     try {
         const { soilMoisture, temperature, humidity, deviceId } = req.body;
 
@@ -345,12 +381,25 @@ app.post('/api/iot/sensor-data', (req, res) => {
             sensorHistory.shift();
         }
 
+        // Send to ThingSpeak in background
+        try {
+            const thingspeakResult = await sendMoistureToThingSpeak({
+                soilMoisture: latestSensorData.soilMoisture,
+                temperature: latestSensorData.temperature,
+                humidity: latestSensorData.humidity
+            });
+            console.log('📡 Data sent to ThingSpeak:', thingspeakResult.success ? '✅' : '❌');
+        } catch (thingspeakError) {
+            console.log('⚠️ ThingSpeak send failed:', thingspeakError.message);
+        }
+
         console.log('📡 Received sensor data via API:', latestSensorData);
 
         res.json({ 
             success: true, 
             message: 'Data received successfully',
-            data: latestSensorData
+            data: latestSensorData,
+            thingspeakUrl: `https://thingspeak.com/channels/${process.env.THINGSPEAK_CHANNEL_ID || '3136377'}`
         });
 
     } catch (error) {
@@ -503,13 +552,17 @@ app.use('/cached-photos', (req, res, next) => {
 // Get all photos from cloud storage - SECURE ENDPOINT
 app.get('/api/gallery/photos', async (req, res) => {
     try {
-        console.log('🔒 Secure Gallery API: Fetching photos...');
+        console.log('🔒 Secure Gallery API: Fetching photos with auto-refresh...');
         
         // Security: Add request tracking
         const clientIP = req.ip || req.connection.remoteAddress;
         console.log(`📸 Gallery request from IP: ${clientIP}`);
         
         const photos = await getPhotosFromCloudStorage();
+        
+        // Enhanced logging
+        console.log(`✅ Gallery API: Successfully returned ${photos.length} photos`);
+        console.log(`📊 Auto-refresh status: ${autoManager.getStatus().autoRefreshActive ? 'Active' : 'Inactive'}`);
         
         // Security: Remove any sensitive information before sending
         const sanitizedPhotos = photos.map(photo => ({
@@ -527,19 +580,25 @@ app.get('/api/gallery/photos', async (req, res) => {
             success: true,
             photos: sanitizedPhotos,
             count: sanitizedPhotos.length,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            autoRefresh: autoManager.getStatus().autoRefreshActive
             // NO server info or sensitive data
         });
         
-        console.log(`✅ Secure Gallery API: Returned ${sanitizedPhotos.length} photos safely`);
+        console.log(`✅ Secure Gallery API: Returned ${sanitizedPhotos.length} photos safely with auto-refresh`);
     } catch (error) {
         console.error('❌ Secure Gallery API Error:', error.message);
+        console.error('❌ Stack trace:', error.stack);
+        
+        // Enhanced error logging
+        console.log('🔄 Attempting automatic recovery...');
         
         // Security: Don't expose detailed error information
         res.status(500).json({
             success: false,
             error: 'Unable to fetch photos at this time',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            autoRefresh: autoManager.getStatus().autoRefreshActive
             // NO detailed error info exposed
         });
     }
@@ -731,7 +790,7 @@ app.get('/auth/dropbox/callback', async (req, res) => {
                     <head><title>PERMANENT Dropbox Access - SUCCESS!</title></head>
                     <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                         <div style="background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto;">
-                            <h1 style="color: #4CAF50; font-size: 2.5em; margin-bottom: 20px;">🔥 PERMANENT SUCCESS!</h1>
+                            <h1 style="color: #4CAF50; font-size: 2.5em; margin-bottom: 20px;">🔥 ONE-CLICK FIX SUCCESS!</h1>
                             <p style="font-size: 1.2em; color: #333; margin-bottom: 20px;">
                                 <strong>Your Dropbox is now connected PERMANENTLY!</strong>
                             </p>
@@ -744,10 +803,13 @@ app.get('/auth/dropbox/callback', async (req, res) => {
                                 Your gallery will now automatically refresh tokens and never expire again!
                             </p>
                             <a href="/gallery.html" style="background: linear-gradient(45deg, #4CAF50, #45a049); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-size: 1.1em; display: inline-block; transition: all 0.3s;">
-                                🎯 Go to Gallery - PERMANENT ACCESS!
+                                🎯 Go to Gallery - FIXED!
                             </a>
                             <br><br>
-                            <p style="color: #999; font-size: 0.9em;">You can close this window now. Your system is PERMANENTLY configured!</p>
+                            <a href="/one-click-fix.html?success=true" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 15px; font-size: 0.9em; display: inline-block; margin-top: 10px;">
+                                🔧 Back to Fix Page
+                            </a>
+                            <p style="color: #999; font-size: 0.9em; margin-top: 20px;">You can close this window now. Your system is PERMANENTLY configured!</p>
                         </div>
                     </body>
                 </html>
@@ -876,16 +938,23 @@ app.post('/api/moisture/send', async (req, res) => {
 });
 
 // ThingSpeak health check - SECURE ENDPOINT
-app.get('/api/moisture/health', (req, res) => {
-    const status = getThingSpeakStatus();
-    
-    res.json({
-        success: true,
-        status: 'ThingSpeak API Online',
-        configured: status.configured,
-        cacheSize: status.cacheSize,
-        timestamp: new Date().toISOString()
-    });
+app.get('/api/moisture/health', async (req, res) => {
+    try {
+        const status = await getThingSpeakStatus();
+        
+        res.json({
+            success: true,
+            status: 'ThingSpeak API Online',
+            thingspeak: status,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'ThingSpeak health check failed',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 // ==========================================

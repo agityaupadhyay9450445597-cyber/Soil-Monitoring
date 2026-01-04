@@ -9,8 +9,8 @@ const fetch = require('node-fetch');
 // Load environment variables
 require('dotenv').config();
 
-// Import PERMANENT Dropbox Manager
-const permanentManager = require('./dropbox-permanent');
+// Import AUTOMATIC Dropbox Manager
+const autoManager = require('./dropbox-auto-manager');
 
 // Configuration
 const GALLERY_FOLDER = ''; // Root directory of cloud storage
@@ -42,8 +42,8 @@ async function getPhotosFromCloudStorage() {
         });
         
         const fetchPromise = (async () => {
-            // Use permanent manager - handles all token issues automatically
-            const imageFiles = await permanentManager.getPhotos();
+            // Use automatic manager - handles all token issues automatically
+            const imageFiles = await autoManager.getPhotos();
             
             console.log(`📸 Found ${imageFiles.length} image files`);
             
@@ -70,7 +70,7 @@ async function getPhotosFromCloudStorage() {
                             // Download fresh copy from Dropbox
                             try {
                                 console.log(`⬇️ Downloading fresh: ${file.name}`);
-                                const dbx = await permanentManager.getClient();
+                                const dbx = await autoManager.getClient();
                                 const downloadLink = await dbx.filesGetTemporaryLink({ path: file.path_lower });
                                 
                                 localPath = await downloadAndCacheImage(
@@ -86,11 +86,11 @@ async function getPhotosFromCloudStorage() {
                         }
                     }
                     
-                    // Create photo object with NO sensitive information
+                    // Create photo object with REAL file information
                     const photo = {
                         id: crypto.createHash('sha256').update(file.id || file.name).digest('hex').substring(0, 16),
-                        name: path.basename(file.name, path.extname(file.name)),
-                        title: file.name.replace(/\.[^/.]+$/, ""),
+                        name: file.name, // REAL filename
+                        title: file.name, // REAL filename as title
                         url: photoUrl,
                         thumbnail: photoUrl,
                         size: formatFileSize(file.size || 0),
@@ -366,16 +366,17 @@ function cleanOldCache() {
     }
 }
 
-/**
- * Get secure status without exposing sensitive information
- */
+// Get secure status without exposing sensitive information
 function getSecureStatus() {
+    const autoStatus = autoManager.getStatus();
     return {
         cloudStorageConfigured: !!(process.env.DROPBOX_APP_KEY && process.env.DROPBOX_ACCESS_TOKEN),
         hasRefreshToken: !!process.env.DROPBOX_REFRESH_TOKEN,
         tokenValid: !!process.env.DROPBOX_ACCESS_TOKEN,
-        cacheDirectory: path.basename(LOCAL_CACHE_DIR), // Only show directory name, not full path
-        autoRefreshEnabled: true,
+        cacheDirectory: path.basename(LOCAL_CACHE_DIR),
+        autoRefreshEnabled: autoStatus.autoRefreshActive,
+        autoRefreshActive: autoStatus.autoRefreshActive,
+        mode: 'automatic',
         // NO sensitive information exposed
     };
 }
