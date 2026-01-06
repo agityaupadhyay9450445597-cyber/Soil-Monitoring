@@ -801,16 +801,16 @@
       "source": "thingspeak"
     }
   ],
-  "lastUpdate": "2026-01-04T05:01:11.198Z",
+  "lastUpdate": "2026-01-05T17:50:16.703Z",
   "status": "connected",
   "channel": {
     "id": 3136377,
-    "name": "soil monitoring",
+    "name": "soil monitoring phasal bazaar",
     "latitude": "0.0",
     "longitude": "0.0",
     "field1": "Field Label 1",
     "created_at": "2025-10-28T12:37:14Z",
-    "updated_at": "2025-10-28T12:37:14Z",
+    "updated_at": "2026-01-04T13:12:56Z",
     "last_entry_id": 1367
   }
 }

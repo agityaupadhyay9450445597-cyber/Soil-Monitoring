@@ -57,32 +57,28 @@ async function getPhotosFromCloudStorage() {
                     let localPath = null;
                     let photoUrl = `/cached-photos/${secureFilename}`;
                     
-                    // If it's a demo photo, use external URL
-                    if (file.id && file.id.startsWith('demo')) {
-                        photoUrl = getDemoPhotoUrl(file.id);
+                    // ONLY REAL DROPBOX FILES - NO DEMO LOGIC
+                    // Check if cached locally
+                    const cachedPath = path.join(LOCAL_CACHE_DIR, secureFilename);
+                    if (fs.existsSync(cachedPath)) {
+                        console.log(`📋 Using cached: ${file.name}`);
+                        localPath = cachedPath;
                     } else {
-                        // Check if cached locally
-                        const cachedPath = path.join(LOCAL_CACHE_DIR, secureFilename);
-                        if (fs.existsSync(cachedPath)) {
-                            console.log(`📋 Using cached: ${file.name}`);
-                            localPath = cachedPath;
-                        } else {
-                            // Download fresh copy from Dropbox
-                            try {
-                                console.log(`⬇️ Downloading fresh: ${file.name}`);
-                                const dbx = await autoManager.getClient();
-                                const downloadLink = await dbx.filesGetTemporaryLink({ path: file.path_lower });
-                                
-                                localPath = await downloadAndCacheImage(
-                                    downloadLink.result.link, 
-                                    secureFilename, 
-                                    file.id
-                                );
-                                console.log(`✅ Downloaded: ${file.name}`);
-                            } catch (downloadError) {
-                                console.log(`⚠️ Download failed for ${file.name}, using placeholder`);
-                                localPath = createPlaceholder(secureFilename);
-                            }
+                        // Download fresh copy from Dropbox
+                        try {
+                            console.log(`⬇️ Downloading fresh: ${file.name}`);
+                            const dbx = await autoManager.getClient();
+                            const downloadLink = await dbx.filesGetTemporaryLink({ path: file.path_lower });
+                            
+                            localPath = await downloadAndCacheImage(
+                                downloadLink.result.link, 
+                                secureFilename, 
+                                file.id
+                            );
+                            console.log(`✅ Downloaded: ${file.name}`);
+                        } catch (downloadError) {
+                            console.log(`⚠️ Download failed for ${file.name}, skipping`);
+                            continue; // Skip this photo instead of placeholder
                         }
                     }
                     
@@ -121,32 +117,16 @@ async function getPhotosFromCloudStorage() {
     } catch (error) {
         console.error('❌ Main fetch error:', error.message);
         
-        // ULTIMATE FALLBACK - NEVER FAIL!
-        console.log('🛡️ BULLETPROOF: Using ultimate fallback system...');
-        const cachedPhotos = getCachedPhotos();
-        
-        if (cachedPhotos.length > 0) {
-            console.log(`📋 Fallback success: ${cachedPhotos.length} cached photos`);
-            return cachedPhotos;
-        }
-        
-        // Even if no cache, return demo photos so system never breaks
-        console.log('🎬 BULLETPROOF: Creating demo photos to prevent system failure');
-        return createDemoPhotos();
+        // NO FALLBACK TO DEMO OR CACHE - RETURN EMPTY ARRAY ONLY!
+        console.log('🔄 Dropbox fetch failed - returning empty array (NO DEMO, NO CACHE)');
+        return [];
     }
 }
 
 /**
- * Get demo photo URL based on ID
+ * NO DEMO PHOTOS - REMOVED COMPLETELY
  */
-function getDemoPhotoUrl(demoId) {
-    const demoUrls = {
-        'demo1': 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
-        'demo2': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400',
-        'demo3': 'https://images.unsplash.com/photo-1574263867128-a3d5c1b1deaa?w=400'
-    };
-    return demoUrls[demoId] || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400';
-}
+// Demo photo URLs removed - only real Dropbox photos allowed
 
 /**
  * Create placeholder image if download fails
@@ -162,43 +142,10 @@ function createPlaceholder(filename) {
 }
 
 /**
- * Create demo photos if everything fails
+ * NO DEMO PHOTOS - REMOVED COMPLETELY
+ * Demo photos functionality removed - only real Dropbox photos allowed
  */
-function createDemoPhotos() {
-    console.log('🎬 BULLETPROOF: Creating demo photos for system stability');
-    return [
-        {
-            id: 'demo1',
-            name: 'Demo Plant 1',
-            title: 'Beautiful Plant Photo',
-            url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
-            thumbnail: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
-            size: '2.5 MB',
-            dateModified: new Date().toISOString(),
-            localPath: null
-        },
-        {
-            id: 'demo2',
-            name: 'Demo Plant 2',
-            title: 'Green Leaves Collection',
-            url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400',
-            thumbnail: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400',
-            size: '1.8 MB',
-            dateModified: new Date(Date.now() - 86400000).toISOString(),
-            localPath: null
-        },
-        {
-            id: 'demo3',
-            name: 'Demo Plant 3',
-            title: 'Garden View Snapshot',
-            url: 'https://images.unsplash.com/photo-1574263867128-a3d5c1b1deaa?w=400',
-            thumbnail: 'https://images.unsplash.com/photo-1574263867128-a3d5c1b1deaa?w=400',
-            size: '3.1 MB',
-            dateModified: new Date(Date.now() - 172800000).toISOString(),
-            localPath: null
-        }
-    ];
-}
+// Demo photos function removed - no fallback allowed
 
 /**
  * Get cached photos from local directory

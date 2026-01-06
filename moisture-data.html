@@ -202,29 +202,49 @@
             window.location.replace('/');
         }
 
-        // Load moisture data from backend
+        // Load moisture data from backend - REAL-TIME
         async function loadMoistureData() {
             try {
                 showLoading();
                 
-                const response = await fetch('/api/moisture/data');
+                // Call the new real-time moisture endpoint
+                const response = await fetch('/api/moisture');
                 const data = await response.json();
                 
-                if (data.success) {
-                    moistureData = data.readings;
+                if (data.status === 'success') {
+                    // Convert history data to expected format
+                    moistureData = data.history.map((reading, index) => ({
+                        moisture: reading.moisture,
+                        timestamp: reading.time,
+                        count: 1,
+                        timeSpan: reading.time
+                    }));
+                    
                     updateStats();
                     renderTable();
-                    showNotification('✅ Data loaded successfully!');
+                    showNotification('✅ Real-time data loaded successfully!');
+                    
+                    // Update connection status
+                    document.getElementById('connectionStatus').innerHTML = `
+                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span>Live Data</span>
+                    `;
                 } else {
-                    throw new Error(data.error || 'Failed to load moisture data');
+                    throw new Error(data.message || 'Failed to load moisture data');
                 }
             } catch (error) {
                 console.error('Error loading moisture data:', error);
-                showError('Failed to load moisture data from ThingSpeak');
+                showError('Sensor data temporarily unavailable');
+                
+                // Update connection status
+                document.getElementById('connectionStatus').innerHTML = `
+                    <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                    <span>Disconnected</span>
+                `;
             }
         }
 
-        // Update statistics
+        // Update statistics - REAL-TIME
         function updateStats() {
             const total = moistureData.length;
             const moistureValues = moistureData.map(d => parseFloat(d.moisture));
@@ -353,20 +373,14 @@
             showNotification('✅ Data exported successfully!');
         }
 
-        // Refresh data from ThingSpeak
+        // Refresh data from ThingSpeak - REAL-TIME
         async function refreshData() {
             try {
-                showNotification('🔄 Refreshing data...');
+                showNotification('🔄 Refreshing real-time data...');
                 
-                const response = await fetch('/api/moisture/sync', { method: 'POST' });
-                const data = await response.json();
-                
-                if (data.success) {
-                    await loadMoistureData();
-                    showNotification('✅ Data refreshed successfully!');
-                } else {
-                    throw new Error(data.error || 'Refresh failed');
-                }
+                // Just reload the data - backend fetches fresh data on every request
+                await loadMoistureData();
+                showNotification('✅ Real-time data refreshed!');
             } catch (error) {
                 console.error('Error refreshing data:', error);
                 showNotification('❌ Failed to refresh data');

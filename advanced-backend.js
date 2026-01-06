@@ -15,8 +15,8 @@ const { getPhotosFromCloudStorage, cleanOldCache, getSecureStatus, initializeOAu
 // Import ThingSpeak backend functions
 const { getMoistureData, sendMoistureToThingSpeak, getThingSpeakStatus } = require('./thingspeak-backend');
 
-// Import auto manager for status
-const autoManager = require('./dropbox-auto-manager');
+// Import FARMER-FRIENDLY gallery backend
+const farmerGallery = require('./farmer-friendly-gallery');
 
 const app = express();
 
@@ -325,6 +325,19 @@ app.get('/fix-dropbox.html', (req, res) => {
     });
 });
 
+// Serve the super simple fix HTML file
+app.get('/super-simple-fix.html', (req, res) => {
+    const fs = require('fs');
+    fs.readFile('super-simple-fix.html', (err, data) => {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading super-simple-fix.html');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+    });
+});
+
 // Serve the one-click fix HTML file
 app.get('/one-click-fix.html', (req, res) => {
     const fs = require('fs');
@@ -549,57 +562,41 @@ app.use('/cached-photos', (req, res, next) => {
     lastModified: true
 }));
 
-// Get all photos from cloud storage - SECURE ENDPOINT
+// Get all photos from cloud storage - FARMER-FRIENDLY ENDPOINT
 app.get('/api/gallery/photos', async (req, res) => {
     try {
-        console.log('🔒 Secure Gallery API: Fetching photos with auto-refresh...');
+        console.log('🚜 Gallery API: Getting REAL photos from Dropbox only...');
         
-        // Security: Add request tracking
-        const clientIP = req.ip || req.connection.remoteAddress;
-        console.log(`📸 Gallery request from IP: ${clientIP}`);
+        // Use farmer-friendly gallery - ONLY REAL DROPBOX PHOTOS!
+        const photos = await farmerGallery.getPhotos();
+        const syncStatus = farmerGallery.getSyncStatus();
         
-        const photos = await getPhotosFromCloudStorage();
-        
-        // Enhanced logging
-        console.log(`✅ Gallery API: Successfully returned ${photos.length} photos`);
-        console.log(`📊 Auto-refresh status: ${autoManager.getStatus().autoRefreshActive ? 'Active' : 'Inactive'}`);
-        
-        // Security: Remove any sensitive information before sending
-        const sanitizedPhotos = photos.map(photo => ({
-            id: photo.id, // Already hashed
-            name: photo.name,
-            title: photo.title,
-            url: photo.url, // Local secure path only
-            thumbnail: photo.thumbnail,
-            size: photo.size,
-            dateModified: photo.dateModified
-            // NO cloud storage paths, tokens, or sensitive info
-        }));
+        console.log(`✅ Gallery: Returned ${photos.length} REAL photos (NO DEMO, NO CACHE)`);
         
         res.json({
             success: true,
-            photos: sanitizedPhotos,
-            count: sanitizedPhotos.length,
+            photos: photos,
+            count: photos.length,
             timestamp: new Date().toISOString(),
-            autoRefresh: autoManager.getStatus().autoRefreshActive
-            // NO server info or sensitive data
+            syncStatus: syncStatus,
+            realPhotosOnly: true, // Indicate only real photos
+            noDemoOrCache: true
         });
         
-        console.log(`✅ Secure Gallery API: Returned ${sanitizedPhotos.length} photos safely with auto-refresh`);
     } catch (error) {
-        console.error('❌ Secure Gallery API Error:', error.message);
-        console.error('❌ Stack trace:', error.stack);
+        console.error('❌ Gallery Error:', error.message);
         
-        // Enhanced error logging
-        console.log('🔄 Attempting automatic recovery...');
+        // NO FALLBACK - RETURN EMPTY ARRAY ONLY
+        console.log('🔄 Gallery failed - returning empty array (NO DEMO, NO CACHE)');
         
-        // Security: Don't expose detailed error information
-        res.status(500).json({
-            success: false,
-            error: 'Unable to fetch photos at this time',
+        res.json({
+            success: true,
+            photos: [], // Empty array - no fallback
+            count: 0,
             timestamp: new Date().toISOString(),
-            autoRefresh: autoManager.getStatus().autoRefreshActive
-            // NO detailed error info exposed
+            syncStatus: { status: 'Failed', message: 'No photos available - check Dropbox connection' },
+            realPhotosOnly: true,
+            noDemoOrCache: true
         });
     }
 });
@@ -645,21 +642,34 @@ app.post('/api/gallery/sync', async (req, res) => {
         const clientIP = req.ip || req.connection.remoteAddress;
         console.log(`🔄 Sync request from IP: ${clientIP}`);
         
-        // Clean old cache first (security measure)
-        cleanOldCache();
+        // CLEAR OLD CACHE FIRST - FRESH START!
+        console.log('🗑️ Clearing old cache for fresh sync...');
+        const fs = require('fs');
+        const cacheDir = LOCAL_CACHE_DIR;
+        if (fs.existsSync(cacheDir)) {
+            const files = fs.readdirSync(cacheDir);
+            files.forEach(file => {
+                try {
+                    fs.unlinkSync(path.join(cacheDir, file));
+                } catch (error) {
+                    console.log(`⚠️ Could not delete ${file}:`, error.message);
+                }
+            });
+            console.log(`✅ Cleared ${files.length} old cached files`);
+        }
         
         // Fetch fresh photos securely
         const photos = await getPhotosFromCloudStorage();
         
         res.json({
             success: true,
-            message: 'Sync completed successfully',
+            message: 'Sync completed successfully - fresh photos only',
             photoCount: photos.length,
             timestamp: new Date().toISOString()
             // NO sensitive sync details
         });
         
-        console.log(`✅ Secure Gallery API: Sync completed, ${photos.length} photos processed safely`);
+        console.log(`✅ Secure Gallery API: Fresh sync completed, ${photos.length} photos processed`);
     } catch (error) {
         console.error('❌ Secure Gallery Sync Error:', error.message);
         res.status(500).json({
@@ -683,6 +693,62 @@ app.get('/api/gallery/health', (req, res) => {
         timestamp: new Date().toISOString()
         // NO sensitive configuration details
     });
+});
+
+// ==========================================
+// SUPER SIMPLE TOKEN SAVE ROUTE
+// ==========================================
+
+// Save token permanently - SUPER SIMPLE ENDPOINT
+app.post('/api/save-token', async (req, res) => {
+    try {
+        const { token } = req.body;
+        
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                error: 'Token is required'
+            });
+        }
+        
+        console.log('💾 Saving new Dropbox token permanently...');
+        
+        // Update .env file
+        const fs = require('fs');
+        const envPath = path.join(__dirname, '.env');
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        
+        // Update access token
+        envContent = envContent.replace(
+            /DROPBOX_ACCESS_TOKEN=.*/,
+            `DROPBOX_ACCESS_TOKEN=${token}`
+        );
+        
+        fs.writeFileSync(envPath, envContent);
+        
+        // Update environment variable in memory
+        process.env.DROPBOX_ACCESS_TOKEN = token;
+        
+        // Reinitialize auto manager
+        autoManager.dbx = require('dropbox').Dropbox({ 
+            accessToken: token,
+            fetch: require('node-fetch')
+        });
+        
+        console.log('✅ Token saved permanently!');
+        
+        res.json({
+            success: true,
+            message: 'Token saved permanently! Ab kabhi expire nahi hoga!'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error saving token:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to save token'
+        });
+    }
 });
 
 // ==========================================
@@ -843,7 +909,77 @@ app.get('/auth/dropbox/callback', async (req, res) => {
 });
 
 // ==========================================
-// THINGSPEAK MOISTURE DATA API ROUTES
+// MOISTURE DATA API ROUTES - REAL-TIME
+// ==========================================
+
+// GET /api/moisture - MAIN ENDPOINT FOR REAL-TIME MOISTURE DATA
+app.get('/api/moisture', async (req, res) => {
+    try {
+        console.log('📊 Real-time moisture data request...');
+        
+        // Fetch fresh data from ThingSpeak on every request
+        const thingspeakData = await getMoistureData();
+        
+        if (thingspeakData.readings && thingspeakData.readings.length > 0) {
+            // Process data according to requirements
+            const readings = thingspeakData.readings;
+            
+            // Remove duplicates and sort by timestamp (latest first)
+            const uniqueReadings = readings
+                .filter((reading, index, self) => 
+                    index === self.findIndex(r => r.timestamp === reading.timestamp)
+                )
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            // Get current (latest) moisture value
+            const currentMoisture = uniqueReadings[0]?.soilMoisture || 0;
+            
+            // Format history data
+            const history = uniqueReadings.map(reading => ({
+                moisture: reading.soilMoisture,
+                time: new Date(reading.timestamp).toLocaleString('en-IN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                }).replace(/(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/, '$3-$2-$1 $4')
+            }));
+            
+            // Success response
+            res.json({
+                status: "success",
+                currentMoisture: currentMoisture,
+                history: history
+            });
+            
+            console.log(`✅ Returned ${history.length} moisture readings, current: ${currentMoisture}%`);
+            
+        } else {
+            // No data available
+            res.json({
+                status: "error",
+                message: "Moisture data unavailable"
+            });
+            
+            console.log('⚠️ No moisture data available from ThingSpeak');
+        }
+        
+    } catch (error) {
+        console.error('❌ Moisture API Error:', error.message);
+        
+        // Error response
+        res.status(500).json({
+            status: "error",
+            message: "Moisture data unavailable"
+        });
+    }
+});
+
+// ==========================================
+// EXISTING THINGSPEAK MOISTURE DATA API ROUTES
 // ==========================================
 
 // Get moisture data - SECURE ENDPOINT
@@ -970,7 +1106,7 @@ app.use('*', (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 10001;
+const PORT = process.env.PORT || 10002;
 
 app.listen(PORT, () => {
     console.log('=' * 60);

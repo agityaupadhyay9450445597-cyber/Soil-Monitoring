@@ -199,57 +199,35 @@
                     photos = data.photos;
                     updateStats();
                     renderGallery();
-                    checkTokenNotification(); // Check if we should show token notification
                     showNotification('✅ Photos loaded successfully!');
                 } else {
-                    console.log('No photos from API, creating demo photos for testing');
-                    // Create demo photos for testing
-                    photos = createDemoPhotos();
+                    // NO PHOTOS - SHOW EMPTY GALLERY ONLY
+                    console.log('No real photos from Dropbox - showing empty gallery');
+                    photos = [];
                     updateStats();
-                    renderGallery();
-                    showNotification('📸 Demo photos loaded for testing');
+                    showEmptyGallery();
+                    showNotification('📸 No photos in Dropbox - upload some photos');
                 }
             } catch (error) {
                 console.error('Error loading photos:', error);
-                console.log('API failed, creating demo photos for testing');
-                photos = createDemoPhotos();
+                // NO FALLBACK - SHOW EMPTY ON ERROR
+                console.log('Dropbox API failed - showing empty gallery');
+                photos = [];
                 updateStats();
-                renderGallery();
-                showNotification('📸 Demo photos loaded (API unavailable)');
+                showEmptyGallery();
+                showNotification('❌ Dropbox connection failed - check your connection');
             }
         }
 
-        // Create demo photos for testing
-        function createDemoPhotos() {
-            return [
-                {
-                    id: 'demo1',
-                    name: 'Plant Photo 1',
-                    title: 'Beautiful Plant',
-                    url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
-                    thumbnail: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
-                    size: '2.5 MB',
-                    dateModified: new Date().toISOString()
-                },
-                {
-                    id: 'demo2',
-                    name: 'Plant Photo 2',
-                    title: 'Green Leaves',
-                    url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400',
-                    thumbnail: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400',
-                    size: '1.8 MB',
-                    dateModified: new Date(Date.now() - 86400000).toISOString()
-                },
-                {
-                    id: 'demo3',
-                    name: 'Plant Photo 3',
-                    title: 'Garden View',
-                    url: 'https://images.unsplash.com/photo-1574263867128-a3d5c1b1deaa?w=400',
-                    thumbnail: 'https://images.unsplash.com/photo-1574263867128-a3d5c1b1deaa?w=400',
-                    size: '3.1 MB',
-                    dateModified: new Date(Date.now() - 172800000).toISOString()
-                }
-            ];
+        // Show empty gallery
+        function showEmptyGallery() {
+            const galleryGrid = document.getElementById('galleryGrid');
+            const loadingState = document.getElementById('loadingState');
+            const emptyState = document.getElementById('emptyState');
+            
+            loadingState.classList.add('hidden');
+            galleryGrid.classList.add('hidden');
+            emptyState.classList.remove('hidden');
         }
 
         // Update statistics
@@ -289,9 +267,9 @@
             const sortedPhotos = [...photos].sort((a, b) => new Date(b.dateModified) - new Date(a.dateModified));
             
             galleryGrid.innerHTML = sortedPhotos.map((photo, index) => `
-                <div class="gallery-item bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer" onclick="console.log('Clicked photo index:', ${index}); openModal(${index})">
+                <div class="gallery-item bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer" onclick="openModal(${index})" data-photo-index="${index}">
                     <div class="relative">
-                        <img src="${photo.thumbnail}" alt="${photo.title}" class="w-full h-48 object-cover hover:scale-105 transition-transform duration-300">
+                        <img src="${photo.url}" alt="${photo.title}" class="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" onerror="this.src='${photo.thumbnail}'; console.log('Image failed to load:', '${photo.url}');">
                         <div class="absolute top-3 right-3">
                             <span class="px-3 py-1 bg-black bg-opacity-70 text-white text-xs rounded-full">
                                 ${formatDate(photo.dateModified)}
@@ -332,26 +310,26 @@
 
         // Open photo modal
         function openModal(index) {
-            console.log('Opening modal for photo index:', index);
+            console.log('🔍 Opening modal for photo index:', index);
             
             // Use sorted photos if available, otherwise use original photos array
             const photosToUse = window.sortedPhotos || photos;
-            console.log('Photos array:', photosToUse);
+            console.log('📸 Photos array length:', photosToUse.length);
             
             if (!photosToUse || photosToUse.length === 0) {
-                console.error('No photos available');
-                showNotification('❌ No photos available');
+                console.error('❌ No photos available');
+                alert('No photos available');
                 return;
             }
             
             if (index < 0 || index >= photosToUse.length) {
-                console.error('Invalid photo index:', index);
-                showNotification('❌ Photo not found');
+                console.error('❌ Invalid photo index:', index, 'Max:', photosToUse.length - 1);
+                alert(`Invalid photo index: ${index}`);
                 return;
             }
             
             const photo = photosToUse[index];
-            console.log('Selected photo:', photo);
+            console.log('✅ Selected photo:', photo);
             
             const modal = document.getElementById('photoModal');
             const modalTitle = document.getElementById('modalTitle');
@@ -359,8 +337,8 @@
             const modalInfo = document.getElementById('modalInfo');
             
             if (!modal || !modalTitle || !modalImage || !modalInfo) {
-                console.error('Modal elements not found');
-                showNotification('❌ Modal not available');
+                console.error('❌ Modal elements not found');
+                alert('Modal elements not found');
                 return;
             }
             
@@ -368,33 +346,49 @@
             modalImage.src = photo.url || photo.thumbnail;
             modalImage.alt = photo.title || 'Photo';
             
+            // Add error handling for modal image
+            modalImage.onerror = function() {
+                console.error('❌ Modal image failed to load:', photo.url);
+                this.src = photo.thumbnail || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBhdmFpbGFibGU8L3RleHQ+PC9zdmc+';
+            };
+            
             modalInfo.innerHTML = `
                 <div>
                     <h4 class="font-semibold text-gray-800 mb-2">Photo Details</h4>
                     <div class="space-y-2">
-                        <p><strong>Date Taken:</strong> ${new Date(photo.dateModified).toLocaleString()}</p>
-                        <p><strong>File Size:</strong> ${photo.size}</p>
-                        <p><strong>Source:</strong> Cloud Storage</p>
+                        <p><strong>Name:</strong> ${photo.name || 'Unknown'}</p>
+                        <p><strong>Date:</strong> ${new Date(photo.dateModified).toLocaleString()}</p>
+                        <p><strong>Size:</strong> ${photo.size}</p>
+                        <p><strong>URL:</strong> <code class="text-xs bg-gray-100 px-2 py-1 rounded">${photo.url}</code></p>
                     </div>
                 </div>
                 <div>
                     <h4 class="font-semibold text-gray-800 mb-2">Actions</h4>
                     <div class="space-y-3">
-                        <button onclick="downloadPhoto('${photo.id}')" class="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-300 flex items-center justify-center gap-2">
-                            <i data-lucide="download" class="h-5 w-5"></i>
-                            Download Original
+                        <button onclick="window.open('${photo.url}', '_blank')" class="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-300 flex items-center justify-center gap-2">
+                            <i data-lucide="external-link" class="h-5 w-5"></i>
+                            Open in New Tab
                         </button>
-                        <button class="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-300 flex items-center justify-center gap-2">
-                            <i data-lucide="share-2" class="h-5 w-5"></i>
-                            Share Photo
+                        <button onclick="copyToClipboard('${photo.url}')" class="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-300 flex items-center justify-center gap-2">
+                            <i data-lucide="copy" class="h-5 w-5"></i>
+                            Copy URL
                         </button>
                     </div>
                 </div>
             `;
             
             modal.classList.remove('hidden');
-            console.log('Modal opened successfully');
+            console.log('✅ Modal opened successfully');
             lucide.createIcons();
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('✅ URL copied to clipboard!');
+            }).catch(() => {
+                showNotification('❌ Failed to copy URL');
+            });
         }
 
         // Close modal
