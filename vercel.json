@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "advanced-backend.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "advanced-soil-monitoring.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/",
+      "dest": "/advanced-soil-monitoring.html"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/advanced-backend.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/advanced-soil-monitoring.html"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
