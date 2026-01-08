@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node advanced-backend.js",
     "dev": "nodemon advanced-backend.js",
-    "simple": "node soil-monitoring-app.js"
+    "simple": "node soil-monitoring-app.js",
+    "build": "echo 'Build completed'",
+    "vercel-build": "echo 'Vercel build completed'"
   },
   "keywords": [
     "soil",
